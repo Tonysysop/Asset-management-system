@@ -1,18 +1,10 @@
-import React, { useState } from "react";
-import type { Receivable, UserRole } from "../types/inventory";
-import {
-  Edit,
-  Trash2,
-  Package,
-  ArrowRight,
-  Monitor,
-  Laptop,
-  Printer,
-  Server,
-  Router,
-  Smartphone,
-  HardDrive,
-} from "lucide-react";
+import React, { useState, useRef } from 'react';
+import type { Receivable, UserRole } from '../types/inventory';
+import { Edit, Trash2, Package, ArrowRight, Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, Upload, Eye, Plus } from 'lucide-react';
+import { addReceivables } from '../services/receivableService';
+import ImportModal from './ImportModal';
+import ViewDetailsModal from './ViewDetailsModal';
+import ReceivableModal from './ReceivableModal';
 
 interface ReceivablesTableProps {
   receivables: Receivable[];
@@ -20,56 +12,63 @@ interface ReceivablesTableProps {
   onEdit: (receivable: Receivable) => void;
   onDelete: (id: string) => void;
   onDeploy: (receivable: Receivable) => void;
+  onImport: () => void;
+  onAdd: () => void;
 }
 
-const ReceivablesTable: React.FC<ReceivablesTableProps> = ({
-  receivables,
-  userRole,
-  onEdit,
-  onDelete,
-  onDeploy,
-}) => {
-  const [sortField, setSortField] = useState<keyof Receivable>("itemName");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+const ReceivablesTable: React.FC<ReceivablesTableProps> = ({ receivables, userRole, onEdit, onDelete, onDeploy, onImport, onAdd }) => {
+  const [sortField, setSortField] = useState<keyof Receivable>('itemName');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  const handleFileImport = async (data: Omit<Receivable, 'id'>[]) => {
+    try {
+      await addReceivables(data);
+      onImport();
+    } catch (error) {
+      console.error('Error importing receivables:', error);
+    }
+  };
+
+  const receivableSampleData = `itemName,category,brand,description,serialNumber,colour,supplierName,purchaseDate,quantity,warranty,notes,status
+Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26,1,1 Year,New laptop for design team,pending`;
+
+  const receivableInstructions = [
+    'The CSV file must have the following columns: itemName, category, brand, description, serialNumber, colour, supplierName, purchaseDate, quantity, warranty, notes, status',
+    'The category must be one of: laptop, desktop, printer, server, router, switch, mobile, peripheral',
+    'The status must be one of: pending, received, deployed',
+    'Dates should be in YYYY-MM-DD format.',
+  ];
+
+  const expectedReceivableHeaders = ['itemName', 'category', 'brand', 'description', 'serialNumber', 'colour', 'supplierName', 'purchaseDate', 'quantity', 'warranty', 'notes', 'status'];
 
   const getAssetIcon = (type: string) => {
     switch (type) {
-      case "laptop":
-        return <Laptop className="w-4 h-4" />;
-      case "desktop":
-        return <Monitor className="w-4 h-4" />;
-      case "printer":
-        return <Printer className="w-4 h-4" />;
-      case "server":
-        return <Server className="w-4 h-4" />;
-      case "router":
-        return <Router className="w-4 h-4" />;
-      case "mobile":
-        return <Smartphone className="w-4 h-4" />;
-      default:
-        return <HardDrive className="w-4 h-4" />;
+      case 'laptop': return <Laptop className="w-4 h-4" />;
+      case 'desktop': return <Monitor className="w-4 h-4" />;
+      case 'printer': return <Printer className="w-4 h-4" />;
+      case 'server': return <Server className="w-4 h-4" />;
+      case 'router': return <Router className="w-4 h-4" />;
+      case 'mobile': return <Smartphone className="w-4 h-4" />;
+      default: return <HardDrive className="w-4 h-4" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "received":
-        return "bg-green-100 text-green-800";
-      case "pending":
-        return "bg-amber-100 text-amber-800";
-      case "deployed":
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+      case 'received': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-amber-100 text-amber-800';
+      case 'deployed': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const handleSort = (field: keyof Receivable) => {
     if (field === sortField) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
-      setSortDirection("asc");
+      setSortDirection('asc');
     }
   };
 
@@ -81,60 +80,84 @@ const ReceivablesTable: React.FC<ReceivablesTableProps> = ({
     if (aValue == null) return 1;
     if (bValue == null) return -1;
 
-    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
     return 0;
   });
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="p-4 flex justify-end space-x-4">
+        <button
+          onClick={() => onAdd()}
+          className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Receivable
+        </button>
+        <button
+          onClick={() => setIsImportModalOpen(true)}
+          className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+        >
+          <Upload className="w-4 h-4 mr-2" />
+          Import CSV
+        </button>
+      </div>
+      <ImportModal 
+        isOpen={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)} 
+        onImport={handleFileImport} 
+        sampleData={receivableSampleData} 
+        instructions={receivableInstructions} 
+        expectedHeaders={expectedReceivableHeaders}
+      />
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("itemName")}
+                onClick={() => handleSort('itemName')}
               >
                 Item Name
               </th>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("category")}
+                onClick={() => handleSort('category')}
               >
                 Category
               </th>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("brand")}
+                onClick={() => handleSort('brand')}
               >
                 Brand
               </th>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("serialNumber")}
+                onClick={() => handleSort('serialNumber')}
               >
                 Serial Number
               </th>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("supplierName")}
+                onClick={() => handleSort('supplierName')}
               >
                 Supplier
               </th>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("quantity")}
+                onClick={() => handleSort('quantity')}
               >
                 Quantity
               </th>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("status")}
+                onClick={() => handleSort('status')}
               >
                 Status
               </th>
-              {userRole === "admin" && (
+              {(userRole === 'admin' || userRole === 'auditor') && (
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -200,10 +223,11 @@ const ReceivablesTable: React.FC<ReceivablesTableProps> = ({
                     {receivable.status.toUpperCase()}
                   </span>
                 </td>
-                {userRole === "admin" && (
+                {userRole === 'admin' && (
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      {receivable.status === "received" && (
+                      <ViewDetailsModal item={receivable} title="Receivable Details" />
+                      {receivable.status === 'received' && (
                         <button
                           onClick={() => onDeploy(receivable)}
                           className="text-green-600 hover:text-green-900 transition-colors duration-150"
@@ -224,6 +248,13 @@ const ReceivablesTable: React.FC<ReceivablesTableProps> = ({
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                    </div>
+                  </td>
+                )}
+                {userRole === 'auditor' && (
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <ViewDetailsModal item={receivable} title="Receivable Details" />
                     </div>
                   </td>
                 )}

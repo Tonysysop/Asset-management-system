@@ -1,22 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { License, UserRole } from '../types/inventory';
-import { Edit, Trash2, Key, AlertTriangle } from 'lucide-react';
+import { Edit, Trash2, Key, AlertTriangle, Upload, Eye, Plus } from 'lucide-react';
+import { addLicenses } from '../services/licenseService';
+import ImportModal from './ImportModal';
+import ViewDetailsModal from './ViewDetailsModal';
+import LicenseModal from './LicenseModal';
 
 interface LicensesTableProps {
   licenses: License[];
   userRole: UserRole;
   onEdit: (license: License) => void;
   onDelete: (id: string) => void;
+  onImport: () => void;
+  onAdd: () => void;
 }
 
 const LicensesTable: React.FC<LicensesTableProps> = ({ 
   licenses, 
   userRole, 
   onEdit, 
-  onDelete 
+  onDelete, 
+  onImport, 
+  onAdd 
 }) => {
   const [sortField, setSortField] = useState<keyof License>('licenseName');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  const handleFileImport = async (data: Omit<License, 'id'>[]) => {
+    try {
+      await addLicenses(data);
+      onImport();
+    } catch (error) {
+      console.error('Error importing licenses:', error);
+    }
+  };
+
+  const licenseSampleData = `licenseName,vendor,licenseKey,seats,purchaseDate,expiryDate,assignedUser,department,notes,status
+Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,50,2023-01-01,2024-01-01,Jane Smith,Marketing,Standard license,active`;
+
+  const licenseInstructions = [
+    'The CSV file must have the following columns: licenseName, vendor, licenseKey, seats, purchaseDate, expiryDate, assignedUser, department, notes, status',
+    'The status must be one of: active, expired, expiring-soon',
+    'Dates should be in YYYY-MM-DD format.',
+  ];
+
+  const expectedLicenseHeaders = ['licenseName', 'vendor', 'licenseKey', 'seats', 'purchaseDate', 'expiryDate', 'assignedUser', 'department', 'notes', 'status'];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -60,6 +89,30 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="p-4 flex justify-end space-x-4">
+        <button
+          onClick={() => onAdd()}
+          className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add License
+        </button>
+        <button
+          onClick={() => setIsImportModalOpen(true)}
+          className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+        >
+          <Upload className="w-4 h-4 mr-2" />
+          Import CSV
+        </button>
+      </div>
+      <ImportModal 
+        isOpen={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)} 
+        onImport={handleFileImport} 
+        sampleData={licenseSampleData} 
+        instructions={licenseInstructions} 
+        expectedHeaders={expectedLicenseHeaders}
+      />
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -100,7 +153,7 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
               >
                 Status
               </th>
-              {userRole === 'admin' && (
+              {(userRole === 'admin' || userRole === 'auditor') && (
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -129,13 +182,7 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
                   <div className="text-sm text-gray-900">{license.assignedUser}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className={`text-sm ${
-                    isExpired(license.expiryDate) 
-                      ? 'text-red-600 font-medium' 
-                      : isExpiringSoon(license.expiryDate) 
-                        ? 'text-amber-600 font-medium' 
-                        : 'text-gray-900'
-                  }`}>
+                  <div className={`text-sm ${isExpired(license.expiryDate) ? 'text-red-600 font-medium' : isExpiringSoon(license.expiryDate) ? 'text-amber-600 font-medium' : 'text-gray-900'}`}>
                     {license.expiryDate}
                   </div>
                   {(isExpired(license.expiryDate) || isExpiringSoon(license.expiryDate)) && (
@@ -153,6 +200,7 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
                 {userRole === 'admin' && (
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
+                      <ViewDetailsModal item={license} title="License Details" />
                       <button
                         onClick={() => onEdit(license)}
                         className="text-blue-600 hover:text-blue-900 transition-colors duration-150"
@@ -165,6 +213,13 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                    </div>
+                  </td>
+                )}
+                {userRole === 'auditor' && (
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <ViewDetailsModal item={license} title="License Details" />
                     </div>
                   </td>
                 )}

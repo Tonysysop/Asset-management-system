@@ -1,8 +1,9 @@
 export type AssetType = 'laptop' | 'desktop' | 'printer' | 'server' | 'router' | 'switch' | 'mobile' | 'peripheral';
 export type AssetStatus = 'in-use' | 'spare' | 'repair' | 'retired';
-export type UserRole = 'admin' | 'user' | 'auditor';
+export type UserRole = 'admin' | 'auditor';
 export type ReceivableStatus = 'pending' | 'received' | 'deployed';
 export type LicenseStatus = 'active' | 'expired' | 'expiring-soon';
+export type ActionType = 'CREATE' | 'UPDATE' | 'DELETE';
 
 export interface Asset {
   id: string;
@@ -57,4 +58,15 @@ export interface User {
   id: string;
   name: string;
   role: UserRole;
+}
+
+export interface Action {
+  id: string;
+  user: string;
+  actionType: ActionType;
+  itemType: 'asset' | 'receivable' | 'license';
+  itemId: string;
+  assetTag?: string;
+  timestamp: Date;
+  details: string;
 }

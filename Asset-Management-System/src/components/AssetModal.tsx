@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import type { Asset, AssetType, AssetStatus } from "@/types/inventory";
-import { X } from "lucide-react";
+import { X, AlertTriangle } from "lucide-react";
 
 interface AssetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (asset: Omit<Asset, "id">) => void;
+  onSave: (asset: Omit<Asset, "id">) => Promise<void>;
   asset?: Asset;
 }
 
@@ -33,6 +33,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState<string | null>(null);
 
   useEffect(() => {
     if (asset) {
@@ -71,6 +72,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
       });
     }
     setErrors({});
+    setServerError(null);
   }, [asset, isOpen]);
 
   const validateForm = () => {
@@ -94,11 +96,15 @@ const AssetModal: React.FC<AssetModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      onSave(formData);
-      onClose();
+      try {
+        await onSave(formData);
+        onClose();
+      } catch (error: any) {
+        setServerError(error.message);
+      }
     }
   };
 
@@ -112,6 +118,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
+    setServerError(null);
   };
 
   if (!isOpen) return null;
@@ -144,6 +151,17 @@ const AssetModal: React.FC<AssetModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {serverError && (
+            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+              <div className="flex">
+                <div className="py-1"><AlertTriangle className="h-6 w-6 text-red-500 mr-4" /></div>
+                <div>
+                  <p className="font-bold">Error</p>
+                  <p className="text-sm">{serverError}</p>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

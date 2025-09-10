@@ -5,9 +5,14 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  writeBatch,
+  query,
+  where,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "../Firebase";
 import type { Asset } from "../types/inventory";
+import { addAction } from "./actionService";
 
 const assetsCollection = collection(db, "assets");
 
@@ -18,17 +23,92 @@ export const getAssets = async (): Promise<Asset[]> => {
   );
 };
 
-export const addAsset = async (assetData: Omit<Asset, "id">) => {
+export const addAsset = async (assetData: Omit<Asset, "id">, user: string) => {
+  const q = query(assetsCollection, where("assetTag", "==", assetData.assetTag));
+  const snapshot = await getDocs(q);
+  if (!snapshot.empty) {
+    throw new Error(`Asset with tag ${assetData.assetTag} already exists.`);
+  }
   const docRef = await addDoc(assetsCollection, assetData);
+  await addAction({
+    user,
+    actionType: "CREATE",
+    itemType: "asset",
+    itemId: docRef.id,
+    assetTag: assetData.assetTag,
+    timestamp: new Date(),
+    details: `Created asset with tag ${assetData.assetTag}`,
+  });
   return { ...assetData, id: docRef.id };
 };
 
-export const updateAsset = async (id: string, assetData: Partial<Asset>) => {
-  const assetDoc = doc(db, "assets", id);
-  await updateDoc(assetDoc, assetData);
+export const addAssets = async (assetsData: Omit<Asset, "id">[], user: string): Promise<string[]> => {
+  const existingAssets = await getAssets();
+  const existingAssetTags = new Set(existingAssets.map(asset => asset.assetTag));
+  const batch = writeBatch(db);
+  const skippedAssetTags: string[] = [];
+  
+  assetsData.forEach((asset) => {
+    if (existingAssetTags.has(asset.assetTag)) {
+      skippedAssetTags.push(asset.assetTag);
+      return;
+    }
+    const docRef = doc(assetsCollection);
+    batch.set(docRef, asset);
+    existingAssetTags.add(asset.assetTag);
+    addAction({
+      user,
+      actionType: "CREATE",
+      itemType: "asset",
+      itemId: docRef.id,
+      assetTag: asset.assetTag,
+      timestamp: new Date(),
+      details: `Created asset with tag ${asset.assetTag}`,
+    });
+  });
+
+  await batch.commit();
+  return skippedAssetTags;
 };
 
-export const deleteAsset = async (id: string) => {
-  const assetDoc = doc(db, "assets", id);
-  await deleteDoc(assetDoc);
+export const updateAsset = async (id: string, assetData: Partial<Asset>, user: string) => {
+  const assetDocRef = doc(db, "assets", id);
+  const assetDoc = await getDoc(assetDocRef);
+  const oldAssetData = assetDoc.data() as Asset;
+  await updateDoc(assetDocRef, assetData);
+  const updatedAssetDoc = await getDoc(assetDocRef);
+  const newAssetData = updatedAssetDoc.data() as Asset;
+
+  const changes = Object.keys(assetData).reduce((acc, key) => {
+    if (oldAssetData[key as keyof Asset] !== newAssetData[key as keyof Asset]) {
+      acc.push(`${key}: '${oldAssetData[key as keyof Asset]}' -> '${newAssetData[key as keyof Asset]}'`);
+    }
+    return acc;
+  }, [] as string[]);
+
+  await addAction({
+    user,
+    actionType: "UPDATE",
+    itemType: "asset",
+    itemId: id,
+    assetTag: newAssetData.assetTag,
+    timestamp: new Date(),
+    details: `Updated asset with id ${id}. Changes: ${changes.join(', ')}`,
+  });
+};
+
+export const deleteAsset = async (id: string, user: string) => {
+  const assetDocRef = doc(db, "assets", id);
+  const assetDoc = await getDoc(assetDocRef);
+  const asset = assetDoc.data() as Asset;
+  await deleteDoc(assetDocRef);
+  await addAction({
+    user,
+    actionType: "DELETE",
+    itemType: "asset",
+    itemId: id,
+    assetTag: asset.assetTag,
+    timestamp: new Date(),
+    details: `Deleted asset with id ${id}`,
+  });
 };

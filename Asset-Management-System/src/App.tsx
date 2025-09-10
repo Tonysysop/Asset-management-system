@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type {
   Asset,
   AssetType,
@@ -38,10 +38,12 @@ import SearchAndFilter from "./components/SearchAndFilter";
 import AssetModal from "./components/AssetModal";
 import ReceivableModal from "./components/ReceivableModal";
 import LicenseModal from "./components/LicenseModal";
-import UserRoleSelector from "./components/UserRoleSelector";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
-import { Plus, BarChart3, Table, Package, Key, LogOut } from "lucide-react";
+import { Plus, BarChart3, Table, Package, Key, LogOut, History } from "lucide-react";
+import Toast from "./components/Toast";
+import { useToast } from "./hooks/useToast";
+import AuditTrail from "./components/AuditTrail";
 
 function App() {
   const { currentUser, logout } = useAuth();
@@ -49,13 +51,39 @@ function App() {
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [licenses, setLicenses] = useState<License[]>([]);
   const [userRole, setUserRole] = useState<UserRole>("admin");
+  const { toast, showToast, hideToast } = useToast();
 
+  // Sync userRole with URL path (/ for admin, /audit for auditor)
   useEffect(() => {
-    const fetchAllData = async () => {
+    const applyRoleFromPath = () => {
+      const isAuditPath = window.location.pathname === "/audit";
+      setUserRole(isAuditPath ? "auditor" : "admin");
+    };
+    applyRoleFromPath();
+    const onPopState = () => applyRoleFromPath();
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  // Ensure role matches URL right after login/logout
+  useEffect(() => {
+    const isAuditPath = window.location.pathname === "/audit";
+    setUserRole(isAuditPath ? "auditor" : "admin");
+  }, [currentUser]);
+
+  // Note: URL controls role; we do not push URL changes based on role.
+
+  const fetchAllData = async () => {
+    try {
       setAssets(await getAssets());
       setReceivables(await getReceivables());
       setLicenses(await getLicenses());
-    };
+    } catch (error) {
+      showToast("Error fetching data", "error");
+    }
+  };
+
+  useEffect(() => {
     fetchAllData();
   }, []);
 
@@ -64,10 +92,11 @@ function App() {
       await logout();
     } catch (error) {
       console.error("Logout failed:", error);
+      showToast("Logout failed", "error");
     }
   };
   const [currentView, setCurrentView] = useState<
-    "dashboard" | "inventory" | "receivables" | "licenses"
+    "dashboard" | "inventory" | "receivables" | "licenses" | "audit"
   >("dashboard");
 
   // Modal states
@@ -163,14 +192,19 @@ function App() {
 
   const handleDeleteAsset = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this asset?")) {
-      await deleteAsset(id);
-      setAssets((prev) => prev.filter((asset) => asset.id !== id));
+      try {
+        await deleteAsset(id, currentUser?.email || "Unknown User");
+        setAssets((prev) => prev.filter((asset) => asset.id !== id));
+        showToast("Asset deleted successfully", "success");
+      } catch (error) {
+        showToast("Error deleting asset", "error");
+      }
     }
   };
 
   const handleSaveAsset = async (assetData: Omit<Asset, "id">) => {
     if (editingAsset) {
-      await updateAsset(editingAsset.id, assetData);
+      await updateAsset(editingAsset.id, assetData, currentUser?.email || "Unknown User");
       setAssets((prev) =>
         prev.map((asset) =>
           asset.id === editingAsset.id
@@ -178,9 +212,11 @@ function App() {
             : asset
         )
       );
+      showToast("Asset updated successfully", "success");
     } else {
-      const newAsset = await addAsset(assetData);
+      const newAsset = await addAsset(assetData, currentUser?.email || "Unknown User");
       setAssets((prev) => [...prev, newAsset]);
+      showToast("Asset added successfully", "success");
     }
   };
 
@@ -197,10 +233,15 @@ function App() {
 
   const handleDeleteReceivable = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this receivable?")) {
-      await deleteReceivable(id);
-      setReceivables((prev) =>
-        prev.filter((receivable) => receivable.id !== id)
-      );
+      try {
+        await deleteReceivable(id, currentUser?.email || "Unknown User");
+        setReceivables((prev) =>
+          prev.filter((receivable) => receivable.id !== id)
+        );
+        showToast("Receivable deleted successfully", "success");
+      } catch (error) {
+        showToast("Error deleting receivable", "error");
+      }
     }
   };
 
@@ -208,7 +249,7 @@ function App() {
     receivableData: Omit<Receivable, "id">
   ) => {
     if (editingReceivable) {
-      await updateReceivable(editingReceivable.id, receivableData);
+      await updateReceivable(editingReceivable.id, receivableData, currentUser?.email || "Unknown User");
       setReceivables((prev) =>
         prev.map((receivable) =>
           receivable.id === editingReceivable.id
@@ -216,46 +257,53 @@ function App() {
             : receivable
         )
       );
+      showToast("Receivable updated successfully", "success");
     } else {
-      const newReceivable = await addReceivable(receivableData);
+      const newReceivable = await addReceivable(receivableData, currentUser?.email || "Unknown User");
       setReceivables((prev) => [...prev, newReceivable]);
+      showToast("Receivable added successfully", "success");
     }
   };
 
   const handleDeployReceivable = async (receivable: Receivable) => {
     if (window.confirm("Deploy this receivable to active inventory?")) {
-      // Create new asset from receivable
-      const newAssetData: Omit<Asset, "id"> = {
-        assetTag: `AUTO-${receivable.serialNumber}`,
-        serialNumber: receivable.serialNumber,
-        type: receivable.category,
-        brand: receivable.brand,
-        model: receivable.itemName,
-        specifications: receivable.description,
-        purchaseDate: receivable.purchaseDate,
-        warrantyExpiry: new Date(
-          new Date(receivable.purchaseDate).getTime() +
-            365 * 24 * 60 * 60 * 1000 * 3
-        )
-          .toISOString()
-          .split("T")[0], // 3 years default
-        vendor: receivable.supplierName,
-        assignedUser: "Unassigned",
-        department: "IT",
-        status: "spare",
-        location: "IT Storage",
-        notes: `Deployed from receivables: ${receivable.notes}`,
-      };
-      const newAsset = await addAsset(newAssetData);
-      setAssets((prev) => [...prev, newAsset]);
+      try {
+        // Create new asset from receivable
+        const newAssetData: Omit<Asset, "id"> = {
+          assetTag: `AUTO-${receivable.serialNumber}`,
+          serialNumber: receivable.serialNumber,
+          type: receivable.category,
+          brand: receivable.brand,
+          model: receivable.itemName,
+          specifications: receivable.description,
+          purchaseDate: receivable.purchaseDate,
+          warrantyExpiry: new Date(
+            new Date(receivable.purchaseDate).getTime() +
+              365 * 24 * 60 * 60 * 1000 * 3
+          )
+            .toISOString()
+            .split("T")[0], // 3 years default
+          vendor: receivable.supplierName,
+          assignedUser: "Unassigned",
+          department: "IT",
+          status: "spare",
+          location: "IT Storage",
+          notes: `Deployed from receivables: ${receivable.notes}`,
+        };
+        const newAsset = await addAsset(newAssetData, currentUser?.email || "Unknown User");
+        setAssets((prev) => [...prev, newAsset]);
 
-      // Update receivable status to deployed
-      await updateReceivable(receivable.id, { status: "deployed" });
-      setReceivables((prev) =>
-        prev.map((r) =>
-          r.id === receivable.id ? { ...r, status: "deployed" as const } : r
-        )
-      );
+        // Update receivable status to deployed
+        await updateReceivable(receivable.id, { status: "deployed" }, currentUser?.email || "Unknown User");
+        setReceivables((prev) =>
+          prev.map((r) =>
+            r.id === receivable.id ? { ...r, status: "deployed" as const } : r
+          )
+        );
+        showToast("Receivable deployed successfully", "success");
+      } catch (error) {
+        showToast("Error deploying receivable", "error");
+      }
     }
   };
 
@@ -272,14 +320,19 @@ function App() {
 
   const handleDeleteLicense = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this license?")) {
-      await deleteLicense(id);
-      setLicenses((prev) => prev.filter((license) => license.id !== id));
+      try {
+        await deleteLicense(id, currentUser?.email || "Unknown User");
+        setLicenses((prev) => prev.filter((license) => license.id !== id));
+        showToast("License deleted successfully", "success");
+      } catch (error) {
+        showToast("Error deleting license", "error");
+      }
     }
   };
 
   const handleSaveLicense = async (licenseData: Omit<License, "id">) => {
     if (editingLicense) {
-      await updateLicense(editingLicense.id, licenseData);
+      await updateLicense(editingLicense.id, licenseData, currentUser?.email || "Unknown User");
       setLicenses((prev) =>
         prev.map((license) =>
           license.id === editingLicense.id
@@ -287,9 +340,11 @@ function App() {
             : license
         )
       );
+      showToast("License updated successfully", "success");
     } else {
-      const newLicense = await addLicense(licenseData);
+      const newLicense = await addLicense(licenseData, currentUser?.email || "Unknown User");
       setLicenses((prev) => [...prev, newLicense]);
+      showToast("License added successfully", "success");
     }
   };
 
@@ -304,6 +359,10 @@ function App() {
 
   const handleExportLicenses = () => {
     exportLicensesToCSV(filteredLicenses, "licenses");
+  };
+
+  const handleImport = () => {
+    fetchAllData();
   };
 
   const getAddButtonText = () => {
@@ -362,6 +421,7 @@ function App() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-100">
+        {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
         {/* Header */}
         <header className="bg-white shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -373,10 +433,6 @@ function App() {
               </div>
 
               <div className="flex items-center space-x-4">
-                <UserRoleSelector
-                  currentRole={userRole}
-                  onRoleChange={setUserRole}
-                />
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-600">
                     {currentUser?.email}
@@ -443,83 +499,82 @@ function App() {
                 <Key className="w-4 h-4 mr-2" />
                 Licenses
               </button>
+              {userRole === "auditor" && (
+                <button
+                  onClick={() => setCurrentView("audit")}
+                  className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
+                    currentView === "audit"
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <History className="w-4 h-4 mr-2" />
+                  Audit Trail
+                </button>
+              )}
             </div>
           </div>
         </nav>
 
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {currentView === "dashboard" ? (
+          {currentView === "dashboard" && (
             <EnhancedDashboard
               assets={assets}
               receivables={receivables}
               licenses={licenses}
+              onImport={handleImport}
+              onAssetAdded={fetchAllData}
+              onLicenseAdded={fetchAllData}
+              onReceivableAdded={fetchAllData}
             />
-          ) : (
-            <div className="space-y-6">
-              {/* Search and Filter */}
-              <SearchAndFilter
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-                selectedType={selectedType}
-                onTypeChange={setSelectedType}
-                selectedStatus={selectedStatus}
-                onStatusChange={setSelectedStatus}
-                selectedDepartment={selectedDepartment}
-                onDepartmentChange={setSelectedDepartment}
-                departments={departments}
-                onExport={getExportHandler()}
-              />
-
-              {/* Add Button (Admin and Auditor) */}
-              {(userRole === "admin" || userRole === "auditor") && (
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    {currentView.charAt(0).toUpperCase() + currentView.slice(1)}{" "}
-                    ({getCurrentData().length})
-                  </h2>
-                  {userRole === "admin" && (
-                    <button
-                      onClick={handleAddClick}
-                      className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {getAddButtonText()}
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Data Tables */}
-              {currentView === "inventory" && (
-                <InventoryTable
-                  assets={filteredAssets}
-                  userRole={userRole}
-                  onEdit={handleEditAsset}
-                  onDelete={handleDeleteAsset}
-                />
-              )}
-
-              {currentView === "receivables" && (
-                <ReceivablesTable
-                  receivables={filteredReceivables}
-                  userRole={userRole}
-                  onEdit={handleEditReceivable}
-                  onDelete={handleDeleteReceivable}
-                  onDeploy={handleDeployReceivable}
-                />
-              )}
-
-              {currentView === "licenses" && (
-                <LicensesTable
-                  licenses={filteredLicenses}
-                  userRole={userRole}
-                  onEdit={handleEditLicense}
-                  onDelete={handleDeleteLicense}
-                />
-              )}
-            </div>
           )}
+          <SearchAndFilter
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            selectedType={selectedType}
+            setSelectedType={setSelectedType}
+            selectedStatus={selectedStatus}
+            setSelectedStatus={setSelectedStatus}
+            selectedDepartment={selectedDepartment}
+            setSelectedDepartment={setSelectedDepartment}
+            departments={departments}
+            onExport={getExportHandler()}
+            currentView={currentView}
+          />
+          {currentView === "inventory" && (
+            <InventoryTable
+              assets={filteredAssets}
+              userRole={userRole}
+              onEdit={handleEditAsset}
+              onDelete={handleDeleteAsset}
+              onImport={handleImport}
+              onAdd={handleAddAsset}
+              showToast={showToast}
+            />
+          )}
+          {currentView === "receivables" && (
+            <ReceivablesTable
+              receivables={filteredReceivables}
+              userRole={userRole}
+              onEdit={handleEditReceivable}
+              onDelete={handleDeleteReceivable}
+              onDeploy={handleDeployReceivable}
+              onImport={handleImport}
+              onAdd={handleAddReceivable}
+            />
+          )}
+          {currentView === "licenses" && (
+            <LicensesTable
+              licenses={filteredLicenses}
+              userRole={userRole}
+              onEdit={handleEditLicense}
+              onDelete={handleDeleteLicense}
+              onImport={handleImport}
+              onAdd={handleAddLicense}
+            />
+          )}
+          {currentView === "audit" && <AuditTrail />}
         </main>
 
         {/* Modals */}
