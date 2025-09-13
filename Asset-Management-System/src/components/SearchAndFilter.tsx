@@ -13,6 +13,7 @@ interface SearchAndFilterProps {
   onDepartmentChange: (department: string) => void;
   departments: string[];
   onExport: () => void;
+  canExport?: boolean;
 }
 
 const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
@@ -25,7 +26,8 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   selectedDepartment,
   onDepartmentChange,
   departments,
-  onExport
+  onExport,
+  canExport = true
 }) => {
   const assetTypes: (AssetType | 'all')[] = ['all', 'laptop', 'desktop', 'printer', 'server', 'router', 'switch', 'mobile', 'peripheral'];
   const assetStatuses: (AssetStatus | 'all')[] = ['all', 'in-use', 'spare', 'repair', 'retired'];
@@ -91,16 +93,18 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
           </select>
         </div>
 
-        {/* Export Button */}
-        <div>
-          <button
-            onClick={onExport}
-            className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-150"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </button>
-        </div>
+        {/* Export Button (Admin only) */}
+        {canExport && (
+          <div>
+            <button
+              onClick={onExport}
+              className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-150"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ export type UserRole = "admin" | "user" | "auditor";
 export type ReceivableStatus = "pending" | "received" | "deployed";
 export type LicenseStatus = "active" | "expired" | "expiring-soon";
 export type LicenseType = "one-off" | "volume";
+export type ActionType = "CREATE" | "UPDATE" | "DELETE";
 
 export interface LicenseUser {
   id: string;
@@ -76,4 +77,15 @@ export interface User {
   id: string;
   name: string;
   role: UserRole;
+}
+
+export interface Action {
+  id: string;
+  user: string;
+  actionType: ActionType;
+  itemType: "asset" | "receivable" | "license";
+  itemId: string;
+  assetTag?: string;
+  timestamp: Date;
+  details: string;
 }

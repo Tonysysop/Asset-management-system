@@ -1,17 +1,62 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Asset, Receivable, License } from '../types/inventory';
 import { 
   Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, 
-  AlertTriangle, Package, Key, TrendingUp, Clock, CheckCircle 
+  AlertTriangle, Package, Key, TrendingUp, Clock, CheckCircle, Plus 
 } from 'lucide-react';
+import AssetModal from './AssetModal';
+import LicenseModal from './LicenseModal';
+import ReceivableModal from './ReceivableModal';
+import { addAsset } from '../services/assetService';
+import { addLicense } from '../services/licenseService';
+import { addReceivable } from '../services/receivableService';
+import { useAuth } from '../contexts/AuthContext';
 
 interface EnhancedDashboardProps {
   assets: Asset[];
   receivables: Receivable[];
   licenses: License[];
+  onImport: () => void;
+  onAssetAdded: () => void;
+  onLicenseAdded: () => void;
+  onReceivableAdded: () => void;
 }
 
-const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({ assets, receivables, licenses }) => {
+const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({ 
+  assets, 
+  receivables, 
+  licenses, 
+  onImport, 
+  onAssetAdded, 
+  onLicenseAdded, 
+  onReceivableAdded 
+}) => {
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
+  const [isReceivableModalOpen, setIsReceivableModalOpen] = useState(false);
+  const { currentUser } = useAuth();
+
+  const handleAddAsset = async (asset: Omit<Asset, 'id'>) => {
+    if (currentUser) {
+      await addAsset(asset, currentUser.email || 'unknown');
+      onAssetAdded();
+    }
+  };
+
+  const handleAddLicense = async (license: Omit<License, 'id'>) => {
+    if (currentUser) {
+      await addLicense(license, currentUser.email || 'unknown');
+      onLicenseAdded();
+    }
+  };
+
+  const handleAddReceivable = async (receivable: Omit<Receivable, 'id'>) => {
+    if (currentUser) {
+      await addReceivable(receivable, currentUser.email || 'unknown');
+      onReceivableAdded();
+    }
+  };
+
   const getAssetIcon = (type: string) => {
     switch (type) {
       case 'laptop': return <Laptop className="w-6 h-6" />;
@@ -78,6 +123,8 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({ assets, receivabl
 
   return (
     <div className="space-y-6">
+      
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow-md p-6">

@@ -19,14 +19,27 @@ export default function LoginForm() {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [role, setRole] = useState<"admin" | "auditor">("admin");
+  const [formError, setFormError] = useState<string | null>(null);
   const { login, error } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setFormError(null);
 
     try {
+      const normalizedEmail = email.trim().toLowerCase();
+      if (role === "admin" && normalizedEmail === "audit@buagroup.com") {
+        setFormError("Audit account cannot sign in as Admin. Please choose Auditor.");
+        return;
+      }
+
       await login(email, password);
+      const targetPath = role === "auditor" ? "/audit" : "/";
+      if (window.location.pathname !== targetPath) {
+        window.history.replaceState({}, "", targetPath);
+      }
     } catch (error) {
       console.error("Login failed:", error);
     } finally {
@@ -60,13 +73,33 @@ export default function LoginForm() {
         </div>
       </CardHeader>
       <CardContent>
-        {error && (
+        {(error || formError) && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-center space-x-2">
             <AlertCircle className="h-4 w-4 text-red-500" />
-            <p className="text-sm text-red-700">{error}</p>
+            <p className="text-sm text-red-700">{formError || error}</p>
           </div>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Sign in as</Label>
+            <div className="flex items-center space-x-2">
+              <Button
+                type="button"
+                onClick={() => setRole("admin")}
+                className={`h-9 px-3 ${role === "admin" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+              >
+                Admin
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setRole("auditor")}
+                className={`h-9 px-3 ${role === "auditor" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+              >
+                Auditor
+              </Button>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium">
               Email address
@@ -79,7 +112,7 @@ export default function LoginForm() {
                 placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="pl-10 h-11 transition-smooth focus:shadow-button"
+                className="pl-10 h-11 transition-smooth focus:outline-none focus:ring-2 focus:ring-[#E30613] focus:border-[#E30613]"
                 required
               />
             </div>
@@ -97,7 +130,7 @@ export default function LoginForm() {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="pl-10 h-11 transition-smooth focus:shadow-button"
+                className="pl-10 h-11 transition-smooth focus:outline-none focus:ring-2 focus:ring-[#E30613] focus:border-[#E30613]"
                 required
               />
             </div>
@@ -128,7 +161,7 @@ export default function LoginForm() {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full h-11 bg-bua-red text-white shadow-button hover:shadow-lg transition-smooth font-medium disabled:opacity-50"
+            className="w-full h-11 bg-[#E30613] text-white font-medium disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#E30613] transition-colors transition-transform duration-150 active:scale-95 hover:bg-[#c50510]"
           >
             {isLoading ? "Signing in..." : "Sign in"}
           </Button>

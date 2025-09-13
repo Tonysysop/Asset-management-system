@@ -1,17 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { Asset, UserRole } from '../types/inventory';
-import { Edit, Trash2, Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive } from 'lucide-react';
+import { Edit, Trash2, Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, Upload, Eye, Plus } from 'lucide-react';
+import { addAssets } from '../services/assetService';
+import ImportModal from './ImportModal';
+import type { ToastType } from './Toast';
+import ViewDetailsModal from './ViewDetailsModal';
+import AssetModal from './AssetModal';
 
 interface InventoryTableProps {
   assets: Asset[];
   userRole: UserRole;
   onEdit: (asset: Asset) => void;
   onDelete: (id: string) => void;
+  onImport: () => void;
+  onAdd: () => void;
+  showToast: (message: string, type: ToastType) => void;
 }
 
-const InventoryTable: React.FC<InventoryTableProps> = ({ assets, userRole, onEdit, onDelete }) => {
+const InventoryTable: React.FC<InventoryTableProps> = ({ assets, userRole, onEdit, onDelete, onImport, onAdd, showToast }) => {
   const [sortField, setSortField] = useState<keyof Asset>('assetTag');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  const handleFileImport = async (data: Omit<Asset, 'id'>[]) => {
+    try {
+      const skippedAssetTags = await addAssets(data);
+      onImport();
+      if (skippedAssetTags.length > 0) {
+        showToast(`Skipped duplicate asset tags: ${skippedAssetTags.join(', ')}`, 'warning');
+      } else {
+        showToast('All assets imported successfully', 'success');
+      }
+    } catch (error) {
+      showToast('Error importing assets', 'error');
+    }
+  };
+
+  const assetSampleData = `assetTag,serialNumber,type,brand,model,specifications,purchaseDate,warrantyExpiry,vendor,assignedUser,department,status,location,notes
+AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-14,Dell Inc.,John Doe,Engineering,in-use,Building A,Room 101`;
+
+  const assetInstructions = [
+    'The CSV file must have the following columns: assetTag, serialNumber, type, brand, model, specifications, purchaseDate, warrantyExpiry, vendor, assignedUser, department, status, location, notes',
+    'The type must be one of: laptop, desktop, printer, server, router, switch, mobile, peripheral',
+    'The status must be one of: in-use, spare, repair, retired',
+    'Dates should be in YYYY-MM-DD format.',
+  ];
+
+  const expectedAssetHeaders = ['assetTag', 'serialNumber', 'type', 'brand', 'model', 'specifications', 'purchaseDate', 'warrantyExpiry', 'vendor', 'assignedUser', 'department', 'status', 'location', 'notes'];
 
   const getAssetIcon = (type: string) => {
     switch (type) {
@@ -62,6 +97,30 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ assets, userRole, onEdi
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="p-4 flex justify-end space-x-4">
+        <button
+          onClick={() => onAdd()}
+          className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Asset
+        </button>
+        <button
+          onClick={() => setIsImportModalOpen(true)}
+          className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+        >
+          <Upload className="w-4 h-4 mr-2" />
+          Import CSV
+        </button>
+      </div>
+      <ImportModal 
+        isOpen={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)} 
+        onImport={handleFileImport} 
+        sampleData={assetSampleData} 
+        instructions={assetInstructions} 
+        expectedHeaders={expectedAssetHeaders}
+      />
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -108,7 +167,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ assets, userRole, onEdi
               >
                 Warranty
               </th>
-              {userRole === 'admin' && (
+              {(userRole === 'admin' || userRole === 'auditor') && (
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -156,6 +215,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ assets, userRole, onEdi
                 {userRole === 'admin' && (
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
+                      <ViewDetailsModal item={asset} title="Asset Details" />
                       <button
                         onClick={() => onEdit(asset)}
                         className="text-blue-600 hover:text-blue-900 transition-colors duration-150"
@@ -168,6 +228,13 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ assets, userRole, onEdi
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                    </div>
+                  </td>
+                )}
+                {userRole === 'auditor' && (
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <ViewDetailsModal item={asset} title="Asset Details" />
                     </div>
                   </td>
                 )}

@@ -6,9 +6,11 @@ import {
 } from "firebase/auth";
 import type { User, AuthError } from "firebase/auth";
 import { auth } from "../Firebase";
+import type { UserRole } from "../types/inventory";
 
 interface AuthContextType {
   currentUser: User | null;
+  userRole: UserRole | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
@@ -31,6 +33,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>("auditor");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +62,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
+      // In a real app, you'd fetch the user's role from your database
+      if (user) {
+        setUserRole("auditor"); // Hardcoded for now
+      } else {
+        setUserRole(null);
+      }
       setLoading(false);
     });
 
@@ -67,6 +76,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const value: AuthContextType = {
     currentUser,
+    userRole,
     login,
     logout,
     loading,
