@@ -1,8 +1,25 @@
-export type AssetType = 'laptop' | 'desktop' | 'printer' | 'server' | 'router' | 'switch' | 'mobile' | 'peripheral';
-export type AssetStatus = 'in-use' | 'spare' | 'repair' | 'retired';
-export type UserRole = 'admin' | 'user' | 'auditor';
-export type ReceivableStatus = 'pending' | 'received' | 'deployed';
-export type LicenseStatus = 'active' | 'expired' | 'expiring-soon';
+export type AssetType =
+  | "laptop"
+  | "desktop"
+  | "printer"
+  | "server"
+  | "router"
+  | "switch"
+  | "mobile"
+  | "peripheral";
+export type AssetStatus = "in-use" | "spare" | "repair" | "retired";
+export type UserRole = "admin" | "user" | "auditor";
+export type ReceivableStatus = "pending" | "received" | "deployed";
+export type LicenseStatus = "active" | "expired" | "expiring-soon";
+export type LicenseType = "one-off" | "volume";
+
+export interface LicenseUser {
+  id: string;
+  name: string;
+  email: string;
+  department: string;
+  assignedDate: string;
+}
 
 export interface Asset {
   id: string;
@@ -44,13 +61,15 @@ export interface License {
   licenseName: string;
   vendor: string;
   licenseKey: string;
+  licenseType: LicenseType;
   seats: number;
   purchaseDate: string;
   expiryDate: string;
-  assignedUser: string;
+  assignedUser: string; // For one-off licenses
   department: string;
   notes: string;
   status: LicenseStatus;
+  assignedUsers?: LicenseUser[]; // For volume licenses
 }
 
 export interface User {

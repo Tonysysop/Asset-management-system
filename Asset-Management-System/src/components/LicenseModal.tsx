@@ -1,26 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import type { License, LicenseStatus } from '../types/inventory';
-import { X } from 'lucide-react';
+
+import React, { useState, useEffect } from "react";
+import type {
+  License,
+  LicenseStatus,
+  LicenseType,
+  LicenseUser,
+} from "../types/inventory";
+import { X, Calendar } from "lucide-react";
+import VolumeLicenseUserManager from "./VolumeLicenseUserManager";
 
 interface LicenseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (license: Omit<License, 'id'>) => void;
+  onSave: (license: Omit<License, "id">) => void;
   license?: License;
 }
 
-const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, license }) => {
-  const [formData, setFormData] = useState<Omit<License, 'id'>>({
-    licenseName: '',
-    vendor: '',
-    licenseKey: '',
+const LicenseModal: React.FC<LicenseModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  license,
+}) => {
+  const [formData, setFormData] = useState<Omit<License, "id">>({
+    licenseName: "",
+    vendor: "",
+    licenseKey: "",
+    licenseType: "one-off",
     seats: 1,
-    purchaseDate: '',
-    expiryDate: '',
-    assignedUser: '',
-    department: '',
-    notes: '',
-    status: 'active'
+    purchaseDate: "",
+    expiryDate: "",
+    assignedUser: "",
+    department: "",
+    notes: "",
+    status: "active",
+    assignedUsers: [],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -31,26 +45,30 @@ const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, li
         licenseName: license.licenseName,
         vendor: license.vendor,
         licenseKey: license.licenseKey,
+        licenseType: license.licenseType || "one-off",
         seats: license.seats,
         purchaseDate: license.purchaseDate,
         expiryDate: license.expiryDate,
         assignedUser: license.assignedUser,
         department: license.department,
         notes: license.notes,
-        status: license.status
+        status: license.status,
+        assignedUsers: license.assignedUsers || [],
       });
     } else {
       setFormData({
-        licenseName: '',
-        vendor: '',
-        licenseKey: '',
+        licenseName: "",
+        vendor: "",
+        licenseKey: "",
+        licenseType: "one-off",
         seats: 1,
-        purchaseDate: '',
-        expiryDate: '',
-        assignedUser: '',
-        department: '',
-        notes: '',
-        status: 'active'
+        purchaseDate: "",
+        expiryDate: "",
+        assignedUser: "",
+        department: "",
+        notes: "",
+        status: "active",
+        assignedUsers: [],
       });
     }
     setErrors({});
@@ -59,14 +77,35 @@ const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, li
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.licenseName.trim()) newErrors.licenseName = 'License name is required';
-    if (!formData.vendor.trim()) newErrors.vendor = 'Vendor is required';
-    if (!formData.licenseKey.trim()) newErrors.licenseKey = 'License key is required';
-    if (!formData.purchaseDate) newErrors.purchaseDate = 'Purchase date is required';
-    if (!formData.expiryDate) newErrors.expiryDate = 'Expiry date is required';
-    if (!formData.assignedUser.trim()) newErrors.assignedUser = 'Assigned user is required';
-    if (!formData.department.trim()) newErrors.department = 'Department is required';
-    if (formData.seats < 1) newErrors.seats = 'Seats must be at least 1';
+    if (!formData.licenseName.trim())
+      newErrors.licenseName = "License name is required";
+    if (!formData.vendor.trim()) newErrors.vendor = "Vendor is required";
+    if (!formData.licenseKey.trim())
+      newErrors.licenseKey = "License key is required";
+    if (!formData.purchaseDate)
+      newErrors.purchaseDate = "Purchase date is required";
+    if (!formData.expiryDate) newErrors.expiryDate = "Expiry date is required";
+    if (!formData.department.trim())
+      newErrors.department = "Department is required";
+    if (formData.seats < 1) newErrors.seats = "Seats must be at least 1";
+
+    // Validation based on license type
+    if (formData.licenseType === "one-off") {
+      if (!formData.assignedUser.trim())
+        newErrors.assignedUser =
+          "Assigned user is required for one-off licenses";
+    } else if (formData.licenseType === "volume") {
+      if (!formData.assignedUsers || formData.assignedUsers.length === 0) {
+        newErrors.assignedUsers =
+          "At least one user must be assigned for volume licenses";
+      }
+      if (
+        formData.assignedUsers &&
+        formData.assignedUsers.length > formData.seats
+      ) {
+        newErrors.assignedUsers = `Cannot assign more users than available seats (${formData.seats})`;
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -80,27 +119,43 @@ const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, li
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'seats' ? parseInt(value) || 0 : value 
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "seats" ? parseInt(value) || 0 : value,
     }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const handleAssignedUsersChange = (users: LicenseUser[]) => {
+    setFormData((prev) => ({ ...prev, assignedUsers: users }));
+    if (errors.assignedUsers) {
+      setErrors((prev) => ({ ...prev, assignedUsers: "" }));
     }
   };
 
   if (!isOpen) return null;
 
-  const licenseStatuses: LicenseStatus[] = ['active', 'expired', 'expiring-soon'];
+  const licenseStatuses: LicenseStatus[] = [
+    "active",
+    "expired",
+    "expiring-soon",
+  ];
+  const licenseTypes: LicenseType[] = ["one-off", "volume"];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-900">
-            {license ? 'Edit License' : 'Add New License'}
+            {license ? "Edit License" : "Add New License"}
           </h2>
           <button
             onClick={onClose}
@@ -122,10 +177,14 @@ const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, li
                 value={formData.licenseName}
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.licenseName ? 'border-red-500' : 'border-gray-300'
+                  errors.licenseName ? "border-red-500" : "border-gray-300"
                 }`}
               />
-              {errors.licenseName && <p className="text-red-500 text-xs mt-1">{errors.licenseName}</p>}
+              {errors.licenseName && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.licenseName}
+                </p>
+              )}
             </div>
 
             <div>
@@ -138,10 +197,12 @@ const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, li
                 value={formData.vendor}
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.vendor ? 'border-red-500' : 'border-gray-300'
+                  errors.vendor ? "border-red-500" : "border-gray-300"
                 }`}
               />
-              {errors.vendor && <p className="text-red-500 text-xs mt-1">{errors.vendor}</p>}
+              {errors.vendor && (
+                <p className="text-red-500 text-xs mt-1">{errors.vendor}</p>
+              )}
             </div>
 
             <div className="md:col-span-2">
@@ -154,10 +215,30 @@ const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, li
                 value={formData.licenseKey}
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.licenseKey ? 'border-red-500' : 'border-gray-300'
+                  errors.licenseKey ? "border-red-500" : "border-gray-300"
                 }`}
               />
-              {errors.licenseKey && <p className="text-red-500 text-xs mt-1">{errors.licenseKey}</p>}
+              {errors.licenseKey && (
+                <p className="text-red-500 text-xs mt-1">{errors.licenseKey}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                License Type *
+              </label>
+              <select
+                name="licenseType"
+                value={formData.licenseType}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                {licenseTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type === "one-off" ? "One-Off License" : "Volume License"}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -171,10 +252,12 @@ const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, li
                 onChange={handleChange}
                 min="1"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.seats ? 'border-red-500' : 'border-gray-300'
+                  errors.seats ? "border-red-500" : "border-gray-300"
                 }`}
               />
-              {errors.seats && <p className="text-red-500 text-xs mt-1">{errors.seats}</p>}
+              {errors.seats && (
+                <p className="text-red-500 text-xs mt-1">{errors.seats}</p>
+              )}
             </div>
 
             <div>
@@ -187,9 +270,9 @@ const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, li
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                {licenseStatuses.map(status => (
+                {licenseStatuses.map((status) => (
                   <option key={status} value={status}>
-                    {status.replace('-', ' ').toUpperCase()}
+                    {status.replace("-", " ").toUpperCase()}
                   </option>
                 ))}
               </select>
@@ -199,49 +282,67 @@ const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, li
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Purchase Date *
               </label>
-              <input
-                type="date"
-                name="purchaseDate"
-                value={formData.purchaseDate}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.purchaseDate ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.purchaseDate && <p className="text-red-500 text-xs mt-1">{errors.purchaseDate}</p>}
+              <div className="relative">
+                <input
+                  type="date"
+                  name="purchaseDate"
+                  value={formData.purchaseDate}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    errors.purchaseDate ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
+                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+              {errors.purchaseDate && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.purchaseDate}
+                </p>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Expiry Date *
               </label>
-              <input
-                type="date"
-                name="expiryDate"
-                value={formData.expiryDate}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.expiryDate ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.expiryDate && <p className="text-red-500 text-xs mt-1">{errors.expiryDate}</p>}
+              <div className="relative">
+                <input
+                  type="date"
+                  name="expiryDate"
+                  value={formData.expiryDate}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    errors.expiryDate ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
+                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+              {errors.expiryDate && (
+                <p className="text-red-500 text-xs mt-1">{errors.expiryDate}</p>
+              )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Assigned User *
-              </label>
-              <input
-                type="text"
-                name="assignedUser"
-                value={formData.assignedUser}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.assignedUser ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.assignedUser && <p className="text-red-500 text-xs mt-1">{errors.assignedUser}</p>}
-            </div>
+            {formData.licenseType === "one-off" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Assigned User *
+                </label>
+                <input
+                  type="text"
+                  name="assignedUser"
+                  value={formData.assignedUser}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    errors.assignedUser ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
+                {errors.assignedUser && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.assignedUser}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -253,10 +354,12 @@ const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, li
                 value={formData.department}
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.department ? 'border-red-500' : 'border-gray-300'
+                  errors.department ? "border-red-500" : "border-gray-300"
                 }`}
               />
-              {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
+              {errors.department && (
+                <p className="text-red-500 text-xs mt-1">{errors.department}</p>
+              )}
             </div>
           </div>
 
@@ -273,6 +376,21 @@ const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, li
             />
           </div>
 
+          {formData.licenseType === "volume" && (
+            <div>
+              <VolumeLicenseUserManager
+                assignedUsers={formData.assignedUsers || []}
+                onUsersChange={handleAssignedUsersChange}
+                maxSeats={formData.seats}
+              />
+              {errors.assignedUsers && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.assignedUsers}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
@@ -285,7 +403,7 @@ const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, onSave, li
               type="submit"
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150"
             >
-              {license ? 'Update License' : 'Add License'}
+              {license ? "Update License" : "Add License"}
             </button>
           </div>
         </form>

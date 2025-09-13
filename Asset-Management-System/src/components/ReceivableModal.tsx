@@ -1,28 +1,37 @@
-import React, { useState, useEffect } from 'react';
-import type { Receivable, AssetType, ReceivableStatus } from '../types/inventory';
-import { X } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import type {
+  Receivable,
+  AssetType,
+  ReceivableStatus,
+} from "../types/inventory";
+import { X, Calendar } from "lucide-react";
 
 interface ReceivableModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (receivable: Omit<Receivable, 'id'>) => void;
+  onSave: (receivable: Omit<Receivable, "id">) => void;
   receivable?: Receivable;
 }
 
-const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSave, receivable }) => {
-  const [formData, setFormData] = useState<Omit<Receivable, 'id'>>({
-    itemName: '',
-    category: 'laptop',
-    brand: '',
-    description: '',
-    serialNumber: '',
-    colour: '',
-    supplierName: '',
-    purchaseDate: '',
+const ReceivableModal: React.FC<ReceivableModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  receivable,
+}) => {
+  const [formData, setFormData] = useState<Omit<Receivable, "id">>({
+    itemName: "",
+    category: "laptop",
+    brand: "",
+    description: "",
+    serialNumber: "",
+    colour: "",
+    supplierName: "",
+    purchaseDate: "",
     quantity: 1,
-    warranty: '',
-    notes: '',
-    status: 'pending'
+    warranty: "",
+    notes: "",
+    status: "pending",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -42,22 +51,22 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSa
         warranty: receivable.warranty,
         notes: receivable.notes,
         status: receivable.status,
-        receivedDate: receivable.receivedDate
+        receivedDate: receivable.receivedDate,
       });
     } else {
       setFormData({
-        itemName: '',
-        category: 'laptop',
-        brand: '',
-        description: '',
-        serialNumber: '',
-        colour: '',
-        supplierName: '',
-        purchaseDate: '',
+        itemName: "",
+        category: "laptop",
+        brand: "",
+        description: "",
+        serialNumber: "",
+        colour: "",
+        supplierName: "",
+        purchaseDate: "",
         quantity: 1,
-        warranty: '',
-        notes: '',
-        status: 'pending'
+        warranty: "",
+        notes: "",
+        status: "pending",
       });
     }
     setErrors({});
@@ -66,13 +75,18 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSa
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.itemName.trim()) newErrors.itemName = 'Item name is required';
-    if (!formData.brand.trim()) newErrors.brand = 'Brand is required';
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.serialNumber.trim()) newErrors.serialNumber = 'Serial number is required';
-    if (!formData.supplierName.trim()) newErrors.supplierName = 'Supplier name is required';
-    if (!formData.purchaseDate) newErrors.purchaseDate = 'Purchase date is required';
-    if (formData.quantity < 1) newErrors.quantity = 'Quantity must be at least 1';
+    if (!formData.itemName.trim()) newErrors.itemName = "Item name is required";
+    if (!formData.brand.trim()) newErrors.brand = "Brand is required";
+    if (!formData.description.trim())
+      newErrors.description = "Description is required";
+    if (!formData.serialNumber.trim())
+      newErrors.serialNumber = "Serial number is required";
+    if (!formData.supplierName.trim())
+      newErrors.supplierName = "Supplier name is required";
+    if (!formData.purchaseDate)
+      newErrors.purchaseDate = "Purchase date is required";
+    if (formData.quantity < 1)
+      newErrors.quantity = "Quantity must be at least 1";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -86,28 +100,45 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSa
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'quantity' ? parseInt(value) || 0 : value 
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "quantity" ? parseInt(value) || 0 : value,
     }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   if (!isOpen) return null;
 
-  const assetTypes: AssetType[] = ['laptop', 'desktop', 'printer', 'server', 'router', 'switch', 'mobile', 'peripheral'];
-  const receivableStatuses: ReceivableStatus[] = ['pending', 'received', 'deployed'];
+  const assetTypes: AssetType[] = [
+    "laptop",
+    "desktop",
+    "printer",
+    "server",
+    "router",
+    "switch",
+    "mobile",
+    "peripheral",
+  ];
+  const receivableStatuses: ReceivableStatus[] = [
+    "pending",
+    "received",
+    "deployed",
+  ];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-900">
-            {receivable ? 'Edit Receivable' : 'Add New Receivable'}
+            {receivable ? "Edit Receivable" : "Add New Receivable"}
           </h2>
           <button
             onClick={onClose}
@@ -129,10 +160,12 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSa
                 value={formData.itemName}
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.itemName ? 'border-red-500' : 'border-gray-300'
+                  errors.itemName ? "border-red-500" : "border-gray-300"
                 }`}
               />
-              {errors.itemName && <p className="text-red-500 text-xs mt-1">{errors.itemName}</p>}
+              {errors.itemName && (
+                <p className="text-red-500 text-xs mt-1">{errors.itemName}</p>
+              )}
             </div>
 
             <div>
@@ -145,7 +178,7 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSa
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                {assetTypes.map(type => (
+                {assetTypes.map((type) => (
                   <option key={type} value={type}>
                     {type.charAt(0).toUpperCase() + type.slice(1)}
                   </option>
@@ -163,10 +196,12 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSa
                 value={formData.brand}
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.brand ? 'border-red-500' : 'border-gray-300'
+                  errors.brand ? "border-red-500" : "border-gray-300"
                 }`}
               />
-              {errors.brand && <p className="text-red-500 text-xs mt-1">{errors.brand}</p>}
+              {errors.brand && (
+                <p className="text-red-500 text-xs mt-1">{errors.brand}</p>
+              )}
             </div>
 
             <div>
@@ -179,10 +214,14 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSa
                 value={formData.serialNumber}
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.serialNumber ? 'border-red-500' : 'border-gray-300'
+                  errors.serialNumber ? "border-red-500" : "border-gray-300"
                 }`}
               />
-              {errors.serialNumber && <p className="text-red-500 text-xs mt-1">{errors.serialNumber}</p>}
+              {errors.serialNumber && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.serialNumber}
+                </p>
+              )}
             </div>
 
             <div>
@@ -208,26 +247,37 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSa
                 value={formData.supplierName}
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.supplierName ? 'border-red-500' : 'border-gray-300'
+                  errors.supplierName ? "border-red-500" : "border-gray-300"
                 }`}
               />
-              {errors.supplierName && <p className="text-red-500 text-xs mt-1">{errors.supplierName}</p>}
+              {errors.supplierName && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.supplierName}
+                </p>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Purchase Date *
               </label>
-              <input
-                type="date"
-                name="purchaseDate"
-                value={formData.purchaseDate}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.purchaseDate ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.purchaseDate && <p className="text-red-500 text-xs mt-1">{errors.purchaseDate}</p>}
+              <div className="relative">
+                <input
+                  type="date"
+                  name="purchaseDate"
+                  value={formData.purchaseDate}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    errors.purchaseDate ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
+                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+              {errors.purchaseDate && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.purchaseDate}
+                </p>
+              )}
             </div>
 
             <div>
@@ -241,10 +291,12 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSa
                 onChange={handleChange}
                 min="1"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.quantity ? 'border-red-500' : 'border-gray-300'
+                  errors.quantity ? "border-red-500" : "border-gray-300"
                 }`}
               />
-              {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>}
+              {errors.quantity && (
+                <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>
+              )}
             </div>
 
             <div>
@@ -271,7 +323,7 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSa
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                {receivableStatuses.map(status => (
+                {receivableStatuses.map((status) => (
                   <option key={status} value={status}>
                     {status.toUpperCase()}
                   </option>
@@ -290,10 +342,12 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSa
               onChange={handleChange}
               rows={2}
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                errors.description ? 'border-red-500' : 'border-gray-300'
+                errors.description ? "border-red-500" : "border-gray-300"
               }`}
             />
-            {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description}</p>}
+            {errors.description && (
+              <p className="text-red-500 text-xs mt-1">{errors.description}</p>
+            )}
           </div>
 
           <div>
@@ -321,7 +375,7 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({ isOpen, onClose, onSa
               type="submit"
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150"
             >
-              {receivable ? 'Update Receivable' : 'Add Receivable'}
+              {receivable ? "Update Receivable" : "Add Receivable"}
             </button>
           </div>
         </form>
