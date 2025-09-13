@@ -1,6 +1,14 @@
 import React, { useState, useRef } from "react";
 import type { License, UserRole } from "../types/inventory";
-import { Edit, Trash2, Key, AlertTriangle, Upload, Eye, Plus } from "lucide-react";
+import {
+  Edit,
+  Trash2,
+  Key,
+  AlertTriangle,
+  Upload,
+  Eye,
+  Plus,
+} from "lucide-react";
 import { addLicenses } from "../services/licenseService";
 import ImportModal from "./ImportModal";
 import ViewDetailsModal from "./ViewDetailsModal";
@@ -48,7 +56,7 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
 
   const expectedLicenseHeaders = [
     "licenseName",
-    "vendor", 
+    "vendor",
     "licenseKey",
     "licenseType",
     "seats",
@@ -57,7 +65,7 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
     "assignedUser",
     "department",
     "notes",
-    "status"
+    "status",
   ];
 
   const getStatusColor = (status: string) => {
@@ -128,12 +136,12 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
           Import CSV
         </button>
       </div>
-      <ImportModal 
-        isOpen={isImportModalOpen} 
-        onClose={() => setIsImportModalOpen(false)} 
-        onImport={handleFileImport} 
-        sampleData={licenseSampleData} 
-        instructions={licenseInstructions} 
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleFileImport}
+        sampleData={licenseSampleData}
+        instructions={licenseInstructions}
         expectedHeaders={expectedLicenseHeaders}
       />
       <div className="overflow-x-auto">
@@ -286,7 +294,10 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
                 {userRole === "admin" && (
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      <ViewDetailsModal item={license} title="License Details" />
+                      <ViewDetailsModal
+                        item={license}
+                        title="License Details"
+                      />
                       <button
                         onClick={() => onEdit(license)}
                         className="text-blue-600 hover:text-blue-900 transition-colors duration-150"
@@ -302,10 +313,13 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
                     </div>
                   </td>
                 )}
-                {userRole === 'auditor' && (
+                {userRole === "auditor" && (
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      <ViewDetailsModal item={license} title="License Details" />
+                      <ViewDetailsModal
+                        item={license}
+                        title="License Details"
+                      />
                     </div>
                   </td>
                 )}
