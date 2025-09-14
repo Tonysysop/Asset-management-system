@@ -3,24 +3,25 @@ import type { Asset, UserRole } from '../types/inventory';
 import { Edit, Trash2, Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, Upload, Eye, Plus } from 'lucide-react';
 import { addAssets } from '../services/assetService';
 import ImportModal from './ImportModal';
-import type { ToastType } from './Toast';
 import ViewDetailsModal from './ViewDetailsModal';
 import AssetModal from './AssetModal';
+import { useToast } from '../contexts/ToastContext';
+import { useStore } from '../store/store';
 
 interface InventoryTableProps {
-  assets: Asset[];
   userRole: UserRole;
   onEdit: (asset: Asset) => void;
   onDelete: (id: string) => void;
   onImport: () => void;
   onAdd: () => void;
-  showToast: (message: string, type: ToastType) => void;
 }
 
-const InventoryTable: React.FC<InventoryTableProps> = ({ assets, userRole, onEdit, onDelete, onImport, onAdd, showToast }) => {
+const InventoryTable: React.FC<InventoryTableProps> = ({ userRole, onEdit, onDelete, onImport, onAdd }) => {
+  const assets = useStore((state) => state.assets);
   const [sortField, setSortField] = useState<keyof Asset>('assetTag');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const { showToast } = useToast();
 
   const handleFileImport = async (data: Omit<Asset, 'id'>[]) => {
     try {
@@ -122,126 +123,139 @@ AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-1
         expectedHeaders={expectedAssetHeaders}
       />
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort('assetTag')}
-              >
-                Asset Tag
-              </th>
-              <th 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort('type')}
-              >
-                Type
-              </th>
-              <th 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort('brand')}
-              >
-                Brand/Model
-              </th>
-              <th 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort('assignedUser')}
-              >
-                Assigned User
-              </th>
-              <th 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort('department')}
-              >
-                Department
-              </th>
-              <th 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort('status')}
-              >
-                Status
-              </th>
-              <th 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort('warrantyExpiry')}
-              >
-                Warranty
-              </th>
-              {(userRole === 'admin' || userRole === 'auditor') && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+        {sortedAssets.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 mb-4">No assets found.</p>
+            <button
+              onClick={() => onAdd()}
+              className="flex items-center mx-auto px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Asset
+            </button>
+          </div>
+        ) : (
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('assetTag')}
+                >
+                  Asset Tag
                 </th>
-              )}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {sortedAssets.map((asset) => (
-              <tr key={asset.id} className="hover:bg-gray-50 transition-colors duration-150">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{asset.assetTag}</div>
-                  <div className="text-sm text-gray-500">{asset.serialNumber}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="text-gray-600 mr-2">
-                      {getAssetIcon(asset.type)}
-                    </div>
-                    <span className="text-sm text-gray-900 capitalize">{asset.type}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{asset.brand}</div>
-                  <div className="text-sm text-gray-500">{asset.model}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{asset.assignedUser}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{asset.department}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(asset.status)}`}>
-                    {asset.status.replace('-', ' ').toUpperCase()}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className={`text-sm ${isWarrantyExpiring(asset.warrantyExpiry) ? 'text-amber-600 font-medium' : 'text-gray-900'}`}>
-                    {asset.warrantyExpiry}
-                  </div>
-                  {isWarrantyExpiring(asset.warrantyExpiry) && (
-                    <div className="text-xs text-amber-600">Expiring Soon</div>
-                  )}
-                </td>
-                {userRole === 'admin' && (
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <ViewDetailsModal item={asset} title="Asset Details" />
-                      <button
-                        onClick={() => onEdit(asset)}
-                        className="text-blue-600 hover:text-blue-900 transition-colors duration-150"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => onDelete(asset.id)}
-                        className="text-red-600 hover:text-red-900 transition-colors duration-150"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                )}
-                {userRole === 'auditor' && (
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <ViewDetailsModal item={asset} title="Asset Details" />
-                    </div>
-                  </td>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('type')}
+                >
+                  Type
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('brand')}
+                >
+                  Brand/Model
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('assignedUser')}
+                >
+                  Assigned User
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('department')}
+                >
+                  Department
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('status')}
+                >
+                  Status
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('warrantyExpiry')}
+                >
+                  Warranty
+                </th>
+                {(userRole === 'admin' || userRole === 'auditor') && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 )}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {sortedAssets.map((asset) => (
+                <tr key={asset.id} className="hover:bg-gray-50 transition-colors duration-150">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{asset.assetTag}</div>
+                    <div className="text-sm text-gray-500">{asset.serialNumber}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="text-gray-600 mr-2">
+                        {getAssetIcon(asset.type)}
+                      </div>
+                      <span className="text-sm text-gray-900 capitalize">{asset.type}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{asset.brand}</div>
+                    <div className="text-sm text-gray-500">{asset.model}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{asset.assignedUser}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{asset.department}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(asset.status)}`}>
+                      {asset.status.replace('-', ' ').toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className={`text-sm ${isWarrantyExpiring(asset.warrantyExpiry) ? 'text-amber-600 font-medium' : 'text-gray-900'}`}>
+                      {asset.warrantyExpiry}
+                    </div>
+                    {isWarrantyExpiring(asset.warrantyExpiry) && (
+                      <div className="text-xs text-amber-600">Expiring Soon</div>
+                    )}
+                  </td>
+                  {userRole === 'admin' && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <ViewDetailsModal item={asset} title="Asset Details" />
+                        <button
+                          onClick={() => onEdit(asset)}
+                          className="text-blue-600 hover:text-blue-900 transition-colors duration-150"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => onDelete(asset.id)}
+                          className="text-red-600 hover:text-red-900 transition-colors duration-150"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
+                  {userRole === 'auditor' && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <ViewDetailsModal item={asset} title="Asset Details" />
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

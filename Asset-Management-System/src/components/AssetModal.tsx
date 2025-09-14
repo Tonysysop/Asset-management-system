@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
 import type { Asset, AssetType, AssetStatus } from "@/types/inventory";
-import { X, Calendar, AlertTriangle } from "lucide-react";
+import { Calendar, AlertTriangle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "./ui/dialog";
+import { Button } from "./ui/button";
 
 interface AssetModalProps {
   isOpen: boolean;
@@ -32,6 +40,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
     notes: "",
   });
 
+  const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -99,11 +108,14 @@ const AssetModal: React.FC<AssetModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
+      setIsSaving(true);
       try {
         await onSave(formData);
         onClose();
       } catch (error: any) {
         setServerError(error.message);
+      } finally {
+        setIsSaving(false);
       }
     }
   };
@@ -121,8 +133,6 @@ const AssetModal: React.FC<AssetModalProps> = ({
     setServerError(null);
   };
 
-  if (!isOpen) return null;
-
   const assetTypes: AssetType[] = [
     "laptop",
     "desktop",
@@ -136,21 +146,12 @@ const AssetModal: React.FC<AssetModalProps> = ({
   const assetStatuses: AssetStatus[] = ["in-use", "spare", "repair", "retired"];
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {asset ? "Edit Asset" : "Add New Asset"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors duration-150"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{asset ? "Edit Asset" : "Add New Asset"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
           {serverError && (
             <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
               <div className="flex">
@@ -162,7 +163,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
               </div>
             </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto p-1">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Asset Tag *
@@ -387,7 +388,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
             </div>
           </div>
 
-          <div>
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Specifications
             </label>
@@ -400,7 +401,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
             />
           </div>
 
-          <div>
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Notes
             </label>
@@ -413,24 +414,42 @@ const AssetModal: React.FC<AssetModalProps> = ({
             />
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-150"
-            >
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150"
-            >
-              {asset ? "Update Asset" : "Add Asset"}
-            </button>
-          </div>
+            </Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? (
+                <svg
+                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              ) : asset ? (
+                "Update Asset"
+              ) : (
+                "Add Asset"
+              )}
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { X, Upload, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
 import Papa from 'papaparse';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import { Button } from './ui/button';
 
 interface ImportModalProps {
   isOpen: boolean;
@@ -94,17 +96,12 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, sa
     onClose();
   }
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-8 max-w-lg w-full">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold">Import CSV</h2>
-          <button onClick={handleClose} className="text-gray-500 hover:text-gray-700">
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="max-w-lg w-full">
+        <DialogHeader>
+          <DialogTitle>Import CSV</DialogTitle>
+        </DialogHeader>
         {error && (
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
             <div className="flex">
@@ -143,12 +140,13 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, sa
               </label>
             </div>
             <div className="mt-6 text-center">
-              <button 
+              <Button 
                 onClick={handleDownloadSample}
-                className="flex items-center justify-center w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">
+                variant="outline"
+                className="w-full">
                 <FileText className="w-4 h-4 mr-2" />
                 Download Sample CSV
-              </button>
+              </Button>
             </div>
           </>
         ) : (
@@ -158,18 +156,18 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, sa
               <h3 className="text-2xl font-bold mb-2">File Ready for Import</h3>
               <p className="text-lg">Found <span className="font-bold">{parsedData.length}</span> items to import.</p>
             </div>
-            <div className="mt-6 flex justify-end space-x-4">
-              <button onClick={handleClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+            <DialogFooter className="mt-6">
+              <Button variant="outline" onClick={handleClose}>
                 Cancel
-              </button>
-              <button onClick={handleConfirmImport} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+              </Button>
+              <Button onClick={handleConfirmImport}>
                 Confirm Import
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

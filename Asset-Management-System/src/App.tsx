@@ -8,24 +8,6 @@ import type {
   License,
 } from "./types/inventory";
 import {
-  getAssets,
-  addAsset,
-  updateAsset,
-  deleteAsset,
-} from "./services/assetService";
-import {
-  getReceivables,
-  addReceivable,
-  updateReceivable,
-  deleteReceivable,
-} from "./services/receivableService";
-import {
-  getLicenses,
-  addLicense,
-  updateLicense,
-  deleteLicense,
-} from "./services/licenseService";
-import {
   exportToCSV,
   exportReceivablesToCSV,
   exportLicensesToCSV,
@@ -41,17 +23,30 @@ import LicenseModal from "./components/LicenseModal";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
 import { Plus, BarChart3, Table, Package, Key, LogOut, History } from "lucide-react";
-import Toast from "./components/Toast";
-import { useToast } from "./hooks/useToast";
+import { ToastProvider, useToast } from "./contexts/ToastContext";
 import AuditTrail from "./components/AuditTrail";
+import ConfirmationDialog from "./components/ConfirmationDialog";
+import { useStore } from "./store/store";
 
-function App() {
+function AppContent() {
   const { currentUser, logout } = useAuth();
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [receivables, setReceivables] = useState<Receivable[]>([]);
-  const [licenses, setLicenses] = useState<License[]>([]);
+  const {
+    assets,
+    receivables,
+    licenses,
+    fetchAllData,
+    addAsset,
+    updateAsset,
+    deleteAsset,
+    addReceivable,
+    updateReceivable,
+    deleteReceivable,
+    addLicense,
+    updateLicense,
+    deleteLicense,
+  } = useStore();
   const [userRole, setUserRole] = useState<UserRole>("admin");
-  const { toast, showToast, hideToast } = useToast();
+  const { showToast } = useToast();
 
   // Sync userRole with URL path (/ for admin, /audit for auditor)
   useEffect(() => {
@@ -73,19 +68,9 @@ function App() {
 
   // Note: URL controls role; we do not push URL changes based on role.
 
-  const fetchAllData = async () => {
-    try {
-      setAssets(await getAssets());
-      setReceivables(await getReceivables());
-      setLicenses(await getLicenses());
-    } catch (error) {
-      showToast("Error fetching data", "error");
-    }
-  };
-
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [fetchAllData]);
 
   const handleLogout = async () => {
     try {
@@ -108,6 +93,11 @@ function App() {
     Receivable | undefined
   >();
   const [editingLicense, setEditingLicense] = useState<License | undefined>();
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ 
+    isOpen: boolean; 
+    id: string; 
+    type: 'asset' | 'receivable' | 'license'; 
+  } | null>(null);
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -190,33 +180,21 @@ function App() {
     setIsAssetModalOpen(true);
   };
 
-  const handleDeleteAsset = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this asset?")) {
-      try {
-        await deleteAsset(id, currentUser?.email || "Unknown User");
-        setAssets((prev) => prev.filter((asset) => asset.id !== id));
-        showToast("Asset deleted successfully", "success");
-      } catch (error) {
-        showToast("Error deleting asset", "error");
-      }
-    }
+  const handleDeleteAsset = (id: string) => {
+    setDeleteConfirmation({ isOpen: true, id, type: 'asset' });
   };
 
   const handleSaveAsset = async (assetData: Omit<Asset, "id">) => {
-    if (editingAsset) {
-      await updateAsset(editingAsset.id, assetData, currentUser?.email || "Unknown User");
-      setAssets((prev) =>
-        prev.map((asset) =>
-          asset.id === editingAsset.id
-            ? { ...asset, ...assetData }
-            : asset
-        )
-      );
-      showToast("Asset updated successfully", "success");
-    } else {
-      const newAsset = await addAsset(assetData, currentUser?.email || "Unknown User");
-      setAssets((prev) => [...prev, newAsset]);
-      showToast("Asset added successfully", "success");
+    try {
+      if (editingAsset) {
+        await updateAsset(editingAsset.id, assetData, currentUser?.email || "Unknown User");
+        showToast("Asset updated successfully", "success");
+      } else {
+        await addAsset(assetData, currentUser?.email || "Unknown User");
+        showToast("Asset added successfully", "success");
+      }
+    } catch (error) {
+      showToast("Error saving asset", "error");
     }
   };
 
@@ -231,37 +209,23 @@ function App() {
     setIsReceivableModalOpen(true);
   };
 
-  const handleDeleteReceivable = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this receivable?")) {
-      try {
-        await deleteReceivable(id, currentUser?.email || "Unknown User");
-        setReceivables((prev) =>
-          prev.filter((receivable) => receivable.id !== id)
-        );
-        showToast("Receivable deleted successfully", "success");
-      } catch (error) {
-        showToast("Error deleting receivable", "error");
-      }
-    }
+  const handleDeleteReceivable = (id: string) => {
+    setDeleteConfirmation({ isOpen: true, id, type: 'receivable' });
   };
 
   const handleSaveReceivable = async (
     receivableData: Omit<Receivable, "id">
   ) => {
-    if (editingReceivable) {
-      await updateReceivable(editingReceivable.id, receivableData, currentUser?.email || "Unknown User");
-      setReceivables((prev) =>
-        prev.map((receivable) =>
-          receivable.id === editingReceivable.id
-            ? { ...receivable, ...receivableData }
-            : receivable
-        )
-      );
-      showToast("Receivable updated successfully", "success");
-    } else {
-      const newReceivable = await addReceivable(receivableData, currentUser?.email || "Unknown User");
-      setReceivables((prev) => [...prev, newReceivable]);
-      showToast("Receivable added successfully", "success");
+    try {
+      if (editingReceivable) {
+        await updateReceivable(editingReceivable.id, receivableData, currentUser?.email || "Unknown User");
+        showToast("Receivable updated successfully", "success");
+      } else {
+        await addReceivable(receivableData, currentUser?.email || "Unknown User");
+        showToast("Receivable added successfully", "success");
+      }
+    } catch (error) {
+      showToast("Error saving receivable", "error");
     }
   };
 
@@ -290,16 +254,10 @@ function App() {
           location: "IT Storage",
           notes: `Deployed from receivables: ${receivable.notes}`,
         };
-        const newAsset = await addAsset(newAssetData, currentUser?.email || "Unknown User");
-        setAssets((prev) => [...prev, newAsset]);
+        await addAsset(newAssetData, currentUser?.email || "Unknown User");
 
         // Update receivable status to deployed
         await updateReceivable(receivable.id, { status: "deployed" }, currentUser?.email || "Unknown User");
-        setReceivables((prev) =>
-          prev.map((r) =>
-            r.id === receivable.id ? { ...r, status: "deployed" as const } : r
-          )
-        );
         showToast("Receivable deployed successfully", "success");
       } catch (error) {
         showToast("Error deploying receivable", "error");
@@ -318,33 +276,42 @@ function App() {
     setIsLicenseModalOpen(true);
   };
 
-  const handleDeleteLicense = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this license?")) {
-      try {
-        await deleteLicense(id, currentUser?.email || "Unknown User");
-        setLicenses((prev) => prev.filter((license) => license.id !== id));
-        showToast("License deleted successfully", "success");
-      } catch (error) {
-        showToast("Error deleting license", "error");
-      }
-    }
+  const handleDeleteLicense = (id: string) => {
+    setDeleteConfirmation({ isOpen: true, id, type: 'license' });
   };
 
   const handleSaveLicense = async (licenseData: Omit<License, "id">) => {
-    if (editingLicense) {
-      await updateLicense(editingLicense.id, licenseData, currentUser?.email || "Unknown User");
-      setLicenses((prev) =>
-        prev.map((license) =>
-          license.id === editingLicense.id
-            ? { ...license, ...licenseData }
-            : license
-        )
-      );
-      showToast("License updated successfully", "success");
-    } else {
-      const newLicense = await addLicense(licenseData, currentUser?.email || "Unknown User");
-      setLicenses((prev) => [...prev, newLicense]);
-      showToast("License added successfully", "success");
+    try {
+      if (editingLicense) {
+        await updateLicense(editingLicense.id, licenseData, currentUser?.email || "Unknown User");
+        showToast("License updated successfully", "success");
+      } else {
+        await addLicense(licenseData, currentUser?.email || "Unknown User");
+        showToast("License added successfully", "success");
+      }
+    } catch (error) {
+      showToast("Error saving license", "error");
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteConfirmation) {
+      const { id, type } = deleteConfirmation;
+      try {
+        if (type === 'asset') {
+          await deleteAsset(id, currentUser?.email || "Unknown User");
+          showToast("Asset deleted successfully", "success");
+        } else if (type === 'receivable') {
+          await deleteReceivable(id, currentUser?.email || "Unknown User");
+          showToast("Receivable deleted successfully", "success");
+        } else if (type === 'license') {
+          await deleteLicense(id, currentUser?.email || "Unknown User");
+          showToast("License deleted successfully", "success");
+        }
+      } catch (error) {
+        showToast(`Error deleting ${type}`, "error");
+      }
+      setDeleteConfirmation(null);
     }
   };
 
@@ -421,7 +388,6 @@ function App() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-100">
-        {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
         {/* Header */}
         <header className="bg-white shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -529,19 +495,21 @@ function App() {
               onReceivableAdded={fetchAllData}
             />
           )}
-          <SearchAndFilter
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            selectedType={selectedType}
-            setSelectedType={setSelectedType}
-            selectedStatus={selectedStatus}
-            setSelectedStatus={setSelectedStatus}
-            selectedDepartment={selectedDepartment}
-            setSelectedDepartment={setSelectedDepartment}
-            departments={departments}
-            onExport={getExportHandler()}
-            currentView={currentView}
-          />
+          {currentView !== "dashboard" && currentView !== "audit" && (
+            <SearchAndFilter
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              selectedType={selectedType}
+              setSelectedType={setSelectedType}
+              selectedStatus={selectedStatus}
+              setSelectedStatus={setSelectedStatus}
+              selectedDepartment={selectedDepartment}
+              setSelectedDepartment={setSelectedDepartment}
+              departments={departments}
+              onExport={getExportHandler()}
+              currentView={currentView}
+            />
+          )}
           {currentView === "inventory" && (
             <InventoryTable
               assets={filteredAssets}
@@ -550,7 +518,6 @@ function App() {
               onDelete={handleDeleteAsset}
               onImport={handleImport}
               onAdd={handleAddAsset}
-              showToast={showToast}
             />
           )}
           {currentView === "receivables" && (
@@ -598,8 +565,26 @@ function App() {
           onSave={handleSaveLicense}
           license={editingLicense}
         />
+
+        {deleteConfirmation && (
+          <ConfirmationDialog
+            isOpen={deleteConfirmation.isOpen}
+            onClose={() => setDeleteConfirmation(null)}
+            onConfirm={handleConfirmDelete}
+            title="Are you sure?"
+            description={`This action cannot be undone. This will permanently delete the ${deleteConfirmation.type}.`}
+          />
+        )}
       </div>
     </ProtectedRoute>
+  );
+}
+
+function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import type { License, UserRole } from "../types/inventory";
 import {
   Edit,
@@ -6,13 +6,13 @@ import {
   Key,
   AlertTriangle,
   Upload,
-  Eye,
   Plus,
 } from "lucide-react";
 import { addLicenses } from "../services/licenseService";
 import ImportModal from "./ImportModal";
 import ViewDetailsModal from "./ViewDetailsModal";
-import LicenseModal from "./LicenseModal";
+import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 
 interface LicensesTableProps {
   licenses: License[];
@@ -31,16 +31,22 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
   onImport,
   onAdd,
 }) => {
+  const { currentUser } = useAuth();
+  const { showToast } = useToast();
   const [sortField, setSortField] = useState<keyof License>("licenseName");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const handleFileImport = async (data: Omit<License, "id">[]) => {
     try {
-      await addLicenses(data);
+      if (!currentUser) {
+        throw new Error("User is not authenticated.");
+      }
+      await addLicenses(data, currentUser.email || "");
       onImport();
+      showToast("Licenses imported successfully", "success");
     } catch (error) {
-      console.error("Error importing licenses:", error);
+      showToast("Error importing licenses", "error");
     }
   };
 
@@ -112,6 +118,14 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
     if (aValue === undefined && bValue === undefined) return 0;
     if (aValue === undefined) return sortDirection === "asc" ? 1 : -1;
     if (bValue === undefined) return sortDirection === "asc" ? -1 : 1;
+
+    if (sortField === 'seats') {
+      const aSeats = typeof aValue === 'number' ? aValue : 0;
+      const bSeats = typeof bValue === 'number' ? bValue : 0;
+      if (aSeats < bSeats) return sortDirection === "asc" ? -1 : 1;
+      if (aSeats > bSeats) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    }
 
     if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
     if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
