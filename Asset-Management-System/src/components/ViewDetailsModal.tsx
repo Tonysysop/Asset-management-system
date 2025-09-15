@@ -12,9 +12,12 @@ const ViewDetailsModal: React.FC<ViewDetailsModalProps> = ({ item, title }) => {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Eye className="w-4 h-4" />
-        </Button>
+        <div onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost">
+            <Eye className="w-4 h-4 mr-2" />
+            View
+          </Button>
+        </div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>

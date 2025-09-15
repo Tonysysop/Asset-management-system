@@ -13,10 +13,10 @@ import { Button } from './ui/button';
 interface ConfirmationDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: () => void;
   title: string;
-  description: string;
-  confirmLabel?: string;
+  message: string;
+  confirmText?: string;
 }
 
 const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
@@ -24,17 +24,17 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   onClose,
   onConfirm,
   title,
-  description,
-  confirmLabel = 'Delete',
+  message,
+  confirmText = 'Confirm',
 }) => {
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const handleConfirm = async () => {
-    setIsDeleting(true);
+    setIsConfirming(true);
     try {
       await onConfirm();
     } finally {
-      setIsDeleting(false);
+      setIsConfirming(false);
       onClose();
     }
   };
@@ -44,18 +44,18 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogDescription>{message}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isDeleting}>
+          <Button variant="outline" onClick={onClose} disabled={isConfirming}>
             Cancel
           </Button>
           <Button
             variant="destructive"
             onClick={handleConfirm}
-            disabled={isDeleting}
+            disabled={isConfirming}
           >
-            {isDeleting ? (
+            {isConfirming ? (
               <svg
                 className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
                 xmlns="http://www.w3.org/2000/svg"
@@ -77,7 +77,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
                 ></path>
               </svg>
             ) : (
-              confirmLabel
+              confirmText
             )}
           </Button>
         </DialogFooter>

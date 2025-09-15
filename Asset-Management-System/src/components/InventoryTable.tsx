@@ -1,3 +1,4 @@
+import DropdownMenu from './DropdownMenu';
 import React, { useState } from 'react';
 import type { Asset, UserRole } from '../types/inventory';
 import { Edit, Trash2, Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, Upload, Plus, MoreVertical, ArchiveRestore } from 'lucide-react';
@@ -6,6 +7,7 @@ import ImportModal from './ImportModal';
 import ViewDetailsModal from './ViewDetailsModal';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import ConfirmationDialog from './ConfirmationDialog';
 
 interface InventoryTableProps {
   assets: Asset[];
@@ -24,7 +26,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ assets, userRole, onEdi
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const { showToast } = useToast();
   const { currentUser } = useAuth();
-  const [openActionAssetId, setOpenActionAssetId] = useState<string | null>(null);
+  const [assetToRetrieve, setAssetToRetrieve] = useState<Asset | null>(null);
 
   const handleFileImport = async (data: Omit<Asset, 'id'>[]) => {
     try {
@@ -104,6 +106,7 @@ AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-1
       {!isRetrievedView && (
         <div className="p-4 flex justify-end space-x-4">
           <button
+            type="button"
             onClick={() => onAdd()}
             className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
           >
@@ -111,6 +114,7 @@ AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-1
             Add Asset
           </button>
           <button
+            type="button"
             onClick={() => setIsImportModalOpen(true)}
             className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
           >
@@ -135,6 +139,7 @@ AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-1
             <p className="text-gray-500 mb-4">No assets found.</p>
             {!isRetrievedView && (
               <button
+                type="button"
                 onClick={() => onAdd()}
                 className="flex items-center mx-auto px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
               >
@@ -236,41 +241,38 @@ AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-1
                   </td>
                   {userRole === 'admin' && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="relative inline-flex items-center space-x-2">
-                        <button
-                          onClick={() => setOpenActionAssetId(openActionAssetId === asset.id ? null : asset.id)}
-                          className="text-gray-600 hover:text-gray-900 transition-colors duration-150"
-                          aria-haspopup="menu"
-                          aria-expanded={openActionAssetId === asset.id}
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                        {openActionAssetId === asset.id && (
-                          <div className="origin-top-right absolute right-0 top-full mt-2 w-44 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20">
-                            <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabIndex={-1}>
-                              <div className="px-1">
-                                <ViewDetailsModal item={asset} title="Asset Details" />
-                              </div>
-                              <button onClick={() => { setOpenActionAssetId(null); onEdit(asset); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center" role="menuitem">
-                                <Edit className="w-4 h-4 mr-2" /> Edit
-                              </button>
-                              <button onClick={() => { setOpenActionAssetId(null); onDelete(asset.id); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-red-600 flex items-center" role="menuitem">
-                                <Trash2 className="w-4 h-4 mr-2" /> Delete
-                              </button>
-                              {onRetrieve && !isRetrievedView && (
-                                <button onClick={() => { setOpenActionAssetId(null); onRetrieve(asset); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center" role="menuitem">
-                                  <ArchiveRestore className="w-4 h-4 mr-2" /> Retrieve
-                                </button>
-                              )}
-                              {isRetrievedView && (
-                                <button onClick={() => { setOpenActionAssetId(null); onEdit(asset); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center" role="menuitem">
-                                  <ArchiveRestore className="w-4 h-4 mr-2" /> Redeploy
-                                </button>
-                              )}
+                      <DropdownMenu
+                        trigger={
+                          <button type="button" className="text-gray-600 hover:text-gray-900 transition-colors duration-150">
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                        }
+                        direction="right"
+                      >
+                        <div className="origin-top-right absolute right-0 mt-2 w-32 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20">
+                          <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabIndex={-1}>
+                            <div className="px-1">
+                              <ViewDetailsModal item={asset} title="Asset Details" />
                             </div>
+                            <button type="button" onClick={() => onEdit(asset)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center" role="menuitem">
+                              <Edit className="w-4 h-4 mr-2" /> Edit
+                            </button>
+                            <button type="button" onClick={() => onDelete(asset.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-red-600 flex items-center" role="menuitem">
+                              <Trash2 className="w-4 h-4 mr-2" /> Delete
+                            </button>
+                            {onRetrieve && !isRetrievedView && (
+                              <button type="button" onClick={() => setAssetToRetrieve(asset)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center" role="menuitem">
+                                <ArchiveRestore className="w-4 h-4 mr-2" /> Retrieve
+                              </button>
+                            )}
+                            {isRetrievedView && (
+                              <button type="button" onClick={() => onEdit(asset)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center" role="menuitem">
+                                <ArchiveRestore className="w-4 h-4 mr-2" /> Redeploy
+                              </button>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      </DropdownMenu>
                     </td>
                   )}
                   {userRole === 'auditor' && (
@@ -286,6 +288,21 @@ AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-1
           </table>
         )}
       </div>
+      {assetToRetrieve && (
+        <ConfirmationDialog
+          isOpen={!!assetToRetrieve}
+          onClose={() => setAssetToRetrieve(null)}
+          onConfirm={() => {
+            if (onRetrieve) {
+              onRetrieve(assetToRetrieve);
+            }
+            setAssetToRetrieve(null);
+          }}
+          title="Move this asset to Retrieved?"
+          message=""
+          confirmText="Retrieve"
+        />
+      )}
     </div>
   );
 };
