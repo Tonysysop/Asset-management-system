@@ -22,7 +22,7 @@ import ReceivableModal from "./components/ReceivableModal";
 import LicenseModal from "./components/LicenseModal";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
-import { Plus, BarChart3, Table, Package, Key, LogOut, History } from "lucide-react";
+import { Plus, BarChart3, Table, Package, Key, LogOut, History, ArchiveRestore } from "lucide-react";
 import { ToastProvider, useToast } from "./contexts/ToastContext";
 import AuditTrail from "./components/AuditTrail";
 import ConfirmationDialog from "./components/ConfirmationDialog";
@@ -32,12 +32,14 @@ function AppContent() {
   const { currentUser, logout } = useAuth();
   const {
     assets,
+    retrievedAssets,
     receivables,
     licenses,
     fetchAllData,
     addAsset,
     updateAsset,
     deleteAsset,
+    retrieveAsset,
     addReceivable,
     updateReceivable,
     deleteReceivable,
@@ -80,8 +82,28 @@ function AppContent() {
       showToast("Logout failed", "error");
     }
   };
+
+  const handleRetrieveAsset = async (asset: Asset) => {
+    if (window.confirm("Move this asset to Retrieved?")) {
+      try {
+        const retrieved = {
+          ...asset,
+          retrievedDate: new Date().toISOString().split('T')[0],
+          retrievedBy: currentUser?.email || 'Unknown User',
+        } as any;
+        await retrieveAsset(asset.id, retrieved, currentUser?.email || 'Unknown User');
+        showToast("Asset moved to Retrieved", "success");
+      } catch (e) {
+        showToast("Error retrieving asset", "error");
+      }
+    }
+  };
+
+  const handleRedeployFromRetrieved = (asset: Asset) => {
+    setRedeployConfirmation(asset);
+  };
   const [currentView, setCurrentView] = useState<
-    "dashboard" | "inventory" | "receivables" | "licenses" | "audit"
+    "dashboard" | "inventory" | "receivables" | "licenses" | "retrieved" | "audit"
   >("dashboard");
 
   // Modal states
@@ -98,6 +120,7 @@ function AppContent() {
     id: string; 
     type: 'asset' | 'receivable' | 'license'; 
   } | null>(null);
+  const [redeployConfirmation, setRedeployConfirmation] = useState<Asset | null>(null);
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -169,6 +192,23 @@ function AppContent() {
     });
   }, [licenses, searchTerm, selectedDepartment]);
 
+  const filteredRetrieved = useMemo(() => {
+    return retrievedAssets.filter((asset) => {
+      const matchesSearch =
+        asset.assetTag.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        asset.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        asset.assignedUser.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        asset.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        asset.model.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesType = selectedType === "all" || asset.type === selectedType;
+      const matchesDepartment =
+        !selectedDepartment || asset.department === selectedDepartment;
+
+      return matchesSearch && matchesType && matchesDepartment;
+    });
+  }, [retrievedAssets, searchTerm, selectedType, selectedDepartment]);
+
   // Asset handlers
   const handleAddAsset = () => {
     setEditingAsset(undefined);
@@ -187,8 +227,16 @@ function AppContent() {
   const handleSaveAsset = async (assetData: Omit<Asset, "id">) => {
     try {
       if (editingAsset) {
-        await updateAsset(editingAsset.id, assetData, currentUser?.email || "Unknown User");
-        showToast("Asset updated successfully", "success");
+        // If editing asset that exists in retrieved view, add new asset and remove retrieved
+        const isRedeploying = currentView === 'retrieved' || (retrievedAssets.find(a => a.id === editingAsset?.id) ? true : false);
+        if (isRedeploying) {
+          await addAsset(assetData, currentUser?.email || "Unknown User");
+          await useStore.getState().removeRetrieved(editingAsset.id, currentUser?.email || "Unknown User");
+          showToast("Asset redeployed to Inventory", "success");
+        } else {
+          await updateAsset(editingAsset.id, assetData, currentUser?.email || "Unknown User");
+          showToast("Asset updated successfully", "success");
+        }
       } else {
         await addAsset(assetData, currentUser?.email || "Unknown User");
         showToast("Asset added successfully", "success");
@@ -465,6 +513,17 @@ function AppContent() {
                 <Key className="w-4 h-4 mr-2" />
                 Licenses
               </button>
+              <button
+                onClick={() => setCurrentView("retrieved")}
+                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
+                  currentView === "retrieved"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                <ArchiveRestore className="w-4 h-4 mr-2" />
+                Retrieved
+              </button>
               {userRole === "auditor" && (
                 <button
                   onClick={() => setCurrentView("audit")}
@@ -498,16 +557,15 @@ function AppContent() {
           {currentView !== "dashboard" && currentView !== "audit" && (
             <SearchAndFilter
               searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
+              onSearchChange={setSearchTerm}
               selectedType={selectedType}
-              setSelectedType={setSelectedType}
+              onTypeChange={setSelectedType}
               selectedStatus={selectedStatus}
-              setSelectedStatus={setSelectedStatus}
+              onStatusChange={setSelectedStatus}
               selectedDepartment={selectedDepartment}
-              setSelectedDepartment={setSelectedDepartment}
+              onDepartmentChange={setSelectedDepartment}
               departments={departments}
               onExport={getExportHandler()}
-              currentView={currentView}
             />
           )}
           {currentView === "inventory" && (
@@ -518,11 +576,11 @@ function AppContent() {
               onDelete={handleDeleteAsset}
               onImport={handleImport}
               onAdd={handleAddAsset}
+              onRetrieve={handleRetrieveAsset}
             />
           )}
           {currentView === "receivables" && (
             <ReceivablesTable
-              receivables={filteredReceivables}
               userRole={userRole}
               onEdit={handleEditReceivable}
               onDelete={handleDeleteReceivable}
@@ -539,6 +597,17 @@ function AppContent() {
               onDelete={handleDeleteLicense}
               onImport={handleImport}
               onAdd={handleAddLicense}
+            />
+          )}
+          {currentView === "retrieved" && (
+            <InventoryTable
+              assets={filteredRetrieved}
+              userRole={userRole}
+              onEdit={handleRedeployFromRetrieved}
+              onDelete={handleDeleteAsset}
+              onImport={handleImport}
+              onAdd={handleAddAsset}
+              isRetrievedView
             />
           )}
           {currentView === "audit" && <AuditTrail />}
@@ -573,6 +642,20 @@ function AppContent() {
             onConfirm={handleConfirmDelete}
             title="Are you sure?"
             description={`This action cannot be undone. This will permanently delete the ${deleteConfirmation.type}.`}
+          />
+        )}
+        {redeployConfirmation && (
+          <ConfirmationDialog
+            isOpen={true}
+            onClose={() => setRedeployConfirmation(null)}
+            onConfirm={async () => {
+              setEditingAsset({ ...redeployConfirmation! });
+              setIsAssetModalOpen(true);
+              setRedeployConfirmation(null);
+            }}
+            title="Redeploy asset?"
+            description={`This will open the asset details for editing before redeploying ${redeployConfirmation.assetTag} back to Inventory.`}
+            confirmLabel="Redeploy"
           />
         )}
       </div>
