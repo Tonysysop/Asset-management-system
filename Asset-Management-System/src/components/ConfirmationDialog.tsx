@@ -16,6 +16,7 @@ interface ConfirmationDialogProps {
   onConfirm: () => Promise<void>;
   title: string;
   description: string;
+  confirmLabel?: string;
 }
 
 const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
@@ -24,6 +25,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   onConfirm,
   title,
   description,
+  confirmLabel = 'Delete',
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -75,7 +77,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
                 ></path>
               </svg>
             ) : (
-              'Delete'
+              confirmLabel
             )}
           </Button>
         </DialogFooter>

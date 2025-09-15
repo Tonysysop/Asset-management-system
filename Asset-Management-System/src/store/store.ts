@@ -1,10 +1,12 @@
 import { create } from 'zustand';
-import type { Asset, Receivable, License } from '../types/inventory';
+import type { Asset, Receivable, License, RetrievedAsset } from '../types/inventory';
 import {
   getAssets,
+  getRetrievedAssets,
   addAsset,
   updateAsset,
   deleteAsset,
+  moveAssetToRetrieved,
 } from '../services/assetService';
 import {
   getReceivables,
@@ -21,6 +23,7 @@ import {
 
 interface AppState {
   assets: Asset[];
+  retrievedAssets: RetrievedAsset[];
   receivables: Receivable[];
   licenses: License[];
   loading: boolean;
@@ -29,6 +32,8 @@ interface AppState {
   addAsset: (asset: Omit<Asset, 'id'>, user: string) => Promise<void>;
   updateAsset: (id: string, asset: Partial<Asset>, user: string) => Promise<void>;
   deleteAsset: (id: string, user: string) => Promise<void>;
+  retrieveAsset: (id: string, retrieved: Omit<RetrievedAsset, 'id'>, user: string) => Promise<void>;
+  removeRetrieved: (id: string, user: string) => Promise<void>;
   addReceivable: (receivable: Omit<Receivable, 'id'>, user: string) => Promise<void>;
   updateReceivable: (id: string, receivable: Partial<Receivable>, user: string) => Promise<void>;
   deleteReceivable: (id: string, user: string) => Promise<void>;
@@ -39,6 +44,7 @@ interface AppState {
 
 export const useStore = create<AppState>((set, get) => ({
   assets: [],
+  retrievedAssets: [],
   receivables: [],
   licenses: [],
   loading: false,
@@ -46,12 +52,13 @@ export const useStore = create<AppState>((set, get) => ({
   fetchAllData: async () => {
     set({ loading: true, error: null });
     try {
-      const [assets, receivables, licenses] = await Promise.all([
+      const [assets, retrievedAssets, receivables, licenses] = await Promise.all([
         getAssets(),
+        getRetrievedAssets(),
         getReceivables(),
         getLicenses(),
       ]);
-      set({ assets, receivables, licenses, loading: false });
+      set({ assets, retrievedAssets, receivables, licenses, loading: false });
     } catch (error) {
       set({ error: 'Error fetching data', loading: false });
     }
@@ -69,6 +76,20 @@ export const useStore = create<AppState>((set, get) => ({
   deleteAsset: async (id, user) => {
     await deleteAsset(id, user);
     set((state) => ({ assets: state.assets.filter((a) => a.id !== id) }));
+  },
+  retrieveAsset: async (id, retrieved, user) => {
+    const saved = await moveAssetToRetrieved(id, retrieved, user);
+    set((state) => ({
+      assets: state.assets.filter((a) => a.id !== id),
+      retrievedAssets: [...state.retrievedAssets, saved],
+    }));
+  },
+  removeRetrieved: async (id, user) => {
+    const { deleteRetrievedAsset } = await import('../services/assetService');
+    await deleteRetrievedAsset(id, user);
+    set((state) => ({
+      retrievedAssets: state.retrievedAssets.filter((a) => a.id !== id),
+    }));
   },
   addReceivable: async (receivable, user) => {
     const newReceivable = await addReceivable(receivable, user);

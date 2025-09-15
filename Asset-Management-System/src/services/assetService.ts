@@ -11,15 +11,23 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db } from "../Firebase";
-import type { Asset } from "../types/inventory";
+import type { Asset, RetrievedAsset } from "../types/inventory";
 import { addAction } from "./actionService";
 
 const assetsCollection = collection(db, "assets");
+const retrievedCollection = collection(db, "retrieved_assets");
 
 export const getAssets = async (): Promise<Asset[]> => {
   const snapshot = await getDocs(assetsCollection);
   return snapshot.docs.map(
     (doc) => ({ ...doc.data(), id: doc.id } as Asset)
+  );
+};
+
+export const getRetrievedAssets = async (): Promise<RetrievedAsset[]> => {
+  const snapshot = await getDocs(retrievedCollection);
+  return snapshot.docs.map(
+    (doc) => ({ ...doc.data(), id: doc.id } as RetrievedAsset)
   );
 };
 
@@ -110,5 +118,44 @@ export const deleteAsset = async (id: string, user: string) => {
     assetTag: asset.assetTag,
     timestamp: new Date(),
     details: `Deleted asset with id ${id}`,
+  });
+};
+
+export const moveAssetToRetrieved = async (
+  id: string,
+  retrievedData: Omit<RetrievedAsset, "id">,
+  user: string
+) => {
+  // Add to retrieved collection
+  const retrievedRef = await addDoc(retrievedCollection, retrievedData);
+  // Delete from assets
+  const assetDocRef = doc(db, "assets", id);
+  await deleteDoc(assetDocRef);
+  // Audit log
+  await addAction({
+    user,
+    actionType: "UPDATE",
+    itemType: "asset",
+    itemId: id,
+    assetTag: retrievedData.assetTag,
+    timestamp: new Date(),
+    details: `Moved asset ${retrievedData.assetTag} to retrieved on ${retrievedData.retrievedDate}`,
+  });
+  return { ...retrievedData, id: retrievedRef.id } as RetrievedAsset;
+};
+
+export const deleteRetrievedAsset = async (id: string, user: string) => {
+  const retrievedDocRef = doc(db, "retrieved_assets", id);
+  const retrievedDoc = await getDoc(retrievedDocRef);
+  const retrieved = retrievedDoc.data() as RetrievedAsset;
+  await deleteDoc(retrievedDocRef);
+  await addAction({
+    user,
+    actionType: "DELETE",
+    itemType: "asset",
+    itemId: id,
+    assetTag: retrieved?.assetTag,
+    timestamp: new Date(),
+    details: `Deleted retrieved asset with id ${id}`,
   });
 };

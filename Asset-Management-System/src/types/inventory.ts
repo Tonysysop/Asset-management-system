@@ -40,6 +40,12 @@ export interface Asset {
   notes: string;
 }
 
+export interface RetrievedAsset extends Asset {
+  retrievedDate: string;
+  retrievedBy: string;
+  retrieveReason?: string;
+}
+
 export interface Receivable {
   id: string;
   itemName: string;

@@ -1,31 +1,34 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import type { Asset, UserRole } from '../types/inventory';
-import { Edit, Trash2, Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, Upload, Eye, Plus } from 'lucide-react';
+import { Edit, Trash2, Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, Upload, Plus, MoreVertical, ArchiveRestore } from 'lucide-react';
 import { addAssets } from '../services/assetService';
 import ImportModal from './ImportModal';
 import ViewDetailsModal from './ViewDetailsModal';
-import AssetModal from './AssetModal';
 import { useToast } from '../contexts/ToastContext';
-import { useStore } from '../store/store';
+import { useAuth } from '../contexts/AuthContext';
 
 interface InventoryTableProps {
+  assets: Asset[];
   userRole: UserRole;
   onEdit: (asset: Asset) => void;
   onDelete: (id: string) => void;
   onImport: () => void;
   onAdd: () => void;
+  onRetrieve?: (asset: Asset) => void;
+  isRetrievedView?: boolean;
 }
 
-const InventoryTable: React.FC<InventoryTableProps> = ({ userRole, onEdit, onDelete, onImport, onAdd }) => {
-  const assets = useStore((state) => state.assets);
+const InventoryTable: React.FC<InventoryTableProps> = ({ assets, userRole, onEdit, onDelete, onImport, onAdd, onRetrieve, isRetrievedView = false }) => {
   const [sortField, setSortField] = useState<keyof Asset>('assetTag');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const { showToast } = useToast();
+  const { currentUser } = useAuth();
+  const [openActionAssetId, setOpenActionAssetId] = useState<string | null>(null);
 
   const handleFileImport = async (data: Omit<Asset, 'id'>[]) => {
     try {
-      const skippedAssetTags = await addAssets(data);
+      const skippedAssetTags = await addAssets(data, currentUser?.email || 'Unknown User');
       onImport();
       if (skippedAssetTags.length > 0) {
         showToast(`Skipped duplicate asset tags: ${skippedAssetTags.join(', ')}`, 'warning');
@@ -98,41 +101,47 @@ AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-1
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="p-4 flex justify-end space-x-4">
-        <button
-          onClick={() => onAdd()}
-          className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Asset
-        </button>
-        <button
-          onClick={() => setIsImportModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-        >
-          <Upload className="w-4 h-4 mr-2" />
-          Import CSV
-        </button>
-      </div>
-      <ImportModal 
-        isOpen={isImportModalOpen} 
-        onClose={() => setIsImportModalOpen(false)} 
-        onImport={handleFileImport} 
-        sampleData={assetSampleData} 
-        instructions={assetInstructions} 
-        expectedHeaders={expectedAssetHeaders}
-      />
+      {!isRetrievedView && (
+        <div className="p-4 flex justify-end space-x-4">
+          <button
+            onClick={() => onAdd()}
+            className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Asset
+          </button>
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Import CSV
+          </button>
+        </div>
+      )}
+      {!isRetrievedView && (
+        <ImportModal 
+          isOpen={isImportModalOpen} 
+          onClose={() => setIsImportModalOpen(false)} 
+          onImport={handleFileImport} 
+          sampleData={assetSampleData} 
+          instructions={assetInstructions} 
+          expectedHeaders={expectedAssetHeaders}
+        />
+      )}
       <div className="overflow-x-auto">
         {sortedAssets.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500 mb-4">No assets found.</p>
-            <button
-              onClick={() => onAdd()}
-              className="flex items-center mx-auto px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Asset
-            </button>
+            {!isRetrievedView && (
+              <button
+                onClick={() => onAdd()}
+                className="flex items-center mx-auto px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Asset
+              </button>
+            )}
           </div>
         ) : (
           <table className="min-w-full divide-y divide-gray-200">
@@ -227,20 +236,40 @@ AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-1
                   </td>
                   {userRole === 'admin' && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <ViewDetailsModal item={asset} title="Asset Details" />
+                      <div className="relative inline-flex items-center space-x-2">
                         <button
-                          onClick={() => onEdit(asset)}
-                          className="text-blue-600 hover:text-blue-900 transition-colors duration-150"
+                          onClick={() => setOpenActionAssetId(openActionAssetId === asset.id ? null : asset.id)}
+                          className="text-gray-600 hover:text-gray-900 transition-colors duration-150"
+                          aria-haspopup="menu"
+                          aria-expanded={openActionAssetId === asset.id}
                         >
-                          <Edit className="w-4 h-4" />
+                          <MoreVertical className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => onDelete(asset.id)}
-                          className="text-red-600 hover:text-red-900 transition-colors duration-150"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {openActionAssetId === asset.id && (
+                          <div className="origin-top-right absolute right-0 top-full mt-2 w-44 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20">
+                            <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabIndex={-1}>
+                              <div className="px-1">
+                                <ViewDetailsModal item={asset} title="Asset Details" />
+                              </div>
+                              <button onClick={() => { setOpenActionAssetId(null); onEdit(asset); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center" role="menuitem">
+                                <Edit className="w-4 h-4 mr-2" /> Edit
+                              </button>
+                              <button onClick={() => { setOpenActionAssetId(null); onDelete(asset.id); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-red-600 flex items-center" role="menuitem">
+                                <Trash2 className="w-4 h-4 mr-2" /> Delete
+                              </button>
+                              {onRetrieve && !isRetrievedView && (
+                                <button onClick={() => { setOpenActionAssetId(null); onRetrieve(asset); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center" role="menuitem">
+                                  <ArchiveRestore className="w-4 h-4 mr-2" /> Retrieve
+                                </button>
+                              )}
+                              {isRetrievedView && (
+                                <button onClick={() => { setOpenActionAssetId(null); onEdit(asset); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center" role="menuitem">
+                                  <ArchiveRestore className="w-4 h-4 mr-2" /> Redeploy
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </td>
                   )}
