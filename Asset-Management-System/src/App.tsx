@@ -84,18 +84,16 @@ function AppContent() {
   };
 
   const handleRetrieveAsset = async (asset: Asset) => {
-    if (window.confirm("Move this asset to Retrieved?")) {
-      try {
-        const retrieved = {
-          ...asset,
-          retrievedDate: new Date().toISOString().split('T')[0],
-          retrievedBy: currentUser?.email || 'Unknown User',
-        } as any;
-        await retrieveAsset(asset.id, retrieved, currentUser?.email || 'Unknown User');
-        showToast("Asset moved to Retrieved", "success");
-      } catch (e) {
-        showToast("Error retrieving asset", "error");
-      }
+    try {
+      const retrieved = {
+        ...asset,
+        retrievedDate: new Date().toISOString().split('T')[0],
+        retrievedBy: currentUser?.email || 'Unknown User',
+      } as any;
+      await retrieveAsset(asset.id, retrieved, currentUser?.email || 'Unknown User');
+      showToast("Asset moved to Retrieved", "success");
+    } catch (e) {
+      showToast("Error retrieving asset", "error");
     }
   };
 
