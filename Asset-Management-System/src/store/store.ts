@@ -42,7 +42,7 @@ interface AppState {
   deleteLicense: (id: string, user: string) => Promise<void>;
 }
 
-export const useStore = create<AppState>((set, get) => ({
+export const useStore = create<AppState>((set) => ({
   assets: [],
   retrievedAssets: [],
   receivables: [],
@@ -59,7 +59,7 @@ export const useStore = create<AppState>((set, get) => ({
         getLicenses(),
       ]);
       set({ assets, retrievedAssets, receivables, licenses, loading: false });
-    } catch (error) {
+    } catch {
       set({ error: 'Error fetching data', loading: false });
     }
   },

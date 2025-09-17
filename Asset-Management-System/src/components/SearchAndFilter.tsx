@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Filter, Download } from 'lucide-react';
+import { Search, Download } from 'lucide-react';
 import type { AssetType, AssetStatus } from '../types/inventory';
 
 interface SearchAndFilterProps {

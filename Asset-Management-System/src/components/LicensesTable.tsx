@@ -45,7 +45,7 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
       await addLicenses(data, currentUser.email || "");
       onImport();
       showToast("Licenses imported successfully", "success");
-    } catch (error) {
+    } catch {
       showToast("Error importing licenses", "error");
     }
   };

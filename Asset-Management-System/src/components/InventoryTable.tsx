@@ -37,7 +37,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ assets, userRole, onEdi
       } else {
         showToast('All assets imported successfully', 'success');
       }
-    } catch (error) {
+    } catch {
       showToast('Error importing assets', 'error');
     }
   };

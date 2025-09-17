@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { X, Upload, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
 import Papa from 'papaparse';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
@@ -7,7 +7,7 @@ import { Button } from './ui/button';
 interface ImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (data: any[]) => void;
+  onImport: (data: unknown[]) => void;
   sampleData: string;
   instructions: string[];
   expectedHeaders: string[];
@@ -15,7 +15,7 @@ interface ImportModalProps {
 
 const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, sampleData, instructions, expectedHeaders }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [parsedData, setParsedData] = useState<any[] | null>(null);
+  const [parsedData, setParsedData] = useState<unknown[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileParse = (file: File) => {
@@ -31,7 +31,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, sa
         setParsedData(results.data);
         setError(null);
       },
-      error: (err) => {
+      error: () => {
         setError('Error parsing CSV file.');
       }
     });
@@ -62,7 +62,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, sa
     if (file && file.type === 'text/csv') {
       handleFileParse(file);
     }
-  }, []);
+  }, [handleFileParse]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
