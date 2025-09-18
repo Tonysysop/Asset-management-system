@@ -26,11 +26,11 @@ const AssetModal: React.FC<AssetModalProps> = ({
   const [formData, setFormData] = useState<Omit<Asset, "id">>({
     assetTag: "",
     serialNumber: "",
-    type: "laptop",
+    type: "compute",
     brand: "",
     model: "",
     specifications: "",
-    purchaseDate: "",
+    deployedDate: "",
     warrantyExpiry: "",
     vendor: "",
     assignedUser: "",
@@ -38,6 +38,10 @@ const AssetModal: React.FC<AssetModalProps> = ({
     status: "spare",
     location: "",
     notes: "",
+    description: "",
+    peripheralType: "printer",
+    itemName: "",
+    computeType: "laptop",
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -53,7 +57,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
         brand: asset.brand,
         model: asset.model,
         specifications: asset.specifications,
-        purchaseDate: asset.purchaseDate,
+        deployedDate: asset.deployedDate,
         warrantyExpiry: asset.warrantyExpiry,
         vendor: asset.vendor,
         assignedUser: asset.assignedUser,
@@ -61,16 +65,20 @@ const AssetModal: React.FC<AssetModalProps> = ({
         status: asset.status,
         location: asset.location,
         notes: asset.notes,
+        description: asset.description || "",
+        peripheralType: asset.peripheralType || "printer",
+        itemName: asset.itemName || "",
+        computeType: asset.computeType || "laptop",
       });
     } else {
       setFormData({
         assetTag: "",
         serialNumber: "",
-        type: "laptop",
+        type: "compute",
         brand: "",
         model: "",
         specifications: "",
-        purchaseDate: "",
+        deployedDate: "",
         warrantyExpiry: "",
         vendor: "",
         assignedUser: "",
@@ -78,6 +86,10 @@ const AssetModal: React.FC<AssetModalProps> = ({
         status: "spare",
         location: "",
         notes: "",
+        description: "",
+        peripheralType: "printer",
+        itemName: "",
+        computeType: "laptop",
       });
     }
     setErrors({});
@@ -92,11 +104,15 @@ const AssetModal: React.FC<AssetModalProps> = ({
       newErrors.serialNumber = "Serial number is required";
     if (!formData.brand.trim()) newErrors.brand = "Brand is required";
     if (!formData.model.trim()) newErrors.model = "Model is required";
-    if (!formData.purchaseDate)
-      newErrors.purchaseDate = "Purchase date is required";
-    if (!formData.warrantyExpiry)
-      newErrors.warrantyExpiry = "Warranty expiry is required";
-    if (!formData.vendor.trim()) newErrors.vendor = "Vendor is required";
+    if (formData.type === "compute") {
+      if (!formData.deployedDate)
+        newErrors.deployedDate = "Deployed date is required";
+      if (!formData.warrantyExpiry)
+        newErrors.warrantyExpiry = "Warranty expiry is required";
+      if (!formData.vendor.trim()) newErrors.vendor = "Vendor is required";
+    } else if (formData.type === "peripheral") {
+      if (!formData.itemName.trim()) newErrors.itemName = "Item name is required";
+    }
     if (!formData.department.trim())
       newErrors.department = "Department is required";
     if (!formData.location.trim()) newErrors.location = "Location is required";
@@ -112,8 +128,8 @@ const AssetModal: React.FC<AssetModalProps> = ({
       try {
         await onSave(formData);
         onClose();
-      } catch (error: any) {
-        setServerError(error.message);
+      } catch (error: unknown) {
+        setServerError((error as Error).message);
       } finally {
         setIsSaving(false);
       }
@@ -134,24 +150,22 @@ const AssetModal: React.FC<AssetModalProps> = ({
   };
 
   const assetTypes: AssetType[] = [
-    "laptop",
-    "desktop",
-    "printer",
+    "compute",
     "server",
     "router",
     "switch",
-    "mobile",
     "peripheral",
   ];
   const assetStatuses: AssetStatus[] = ["in-use", "spare", "repair", "retired"];
-
+  const peripheralTypes = ["printer", "scanner"];
+  const computeTypes = ["laptop", "desktop", "mobile"];
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-7xl p-6">
         <DialogHeader>
           <DialogTitle>{asset ? "Edit Asset" : "Add New Asset"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-8">
           {serverError && (
             <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
               <div className="flex">
@@ -163,7 +177,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
               </div>
             </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto p-1">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-h-[70vh] overflow-y-auto p-1">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Asset Tag *
@@ -219,6 +233,44 @@ const AssetModal: React.FC<AssetModalProps> = ({
                 ))}
               </select>
             </div>
+            {formData.type === "peripheral" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Peripheral Type *
+                </label>
+                <select
+                  name="peripheralType"
+                  value={formData.peripheralType}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {peripheralTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {formData.type === "compute" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Compute Type *
+                </label>
+                <select
+                  name="computeType"
+                  value={formData.computeType}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {computeTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -240,7 +292,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Brand *
+                Brand / Manufacturer *
               </label>
               <input
                 type="text"
@@ -273,70 +325,73 @@ const AssetModal: React.FC<AssetModalProps> = ({
                 <p className="text-red-500 text-xs mt-1">{errors.model}</p>
               )}
             </div>
+            {formData.type === "compute" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Deployed Date *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      name="deployedDate"
+                      value={formData.deployedDate}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                        errors.deployedDate ? "border-red-500" : "border-gray-300"
+                      }`}
+                    />
+                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                  {errors.deployedDate && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.deployedDate}
+                    </p>
+                  )}
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Purchase Date *
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  name="purchaseDate"
-                  value={formData.purchaseDate}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                    errors.purchaseDate ? "border-red-500" : "border-gray-300"
-                  }`}
-                />
-                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-              {errors.purchaseDate && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.purchaseDate}
-                </p>
-              )}
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Warranty Expiry *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      name="warrantyExpiry"
+                      value={formData.warrantyExpiry}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                        errors.warrantyExpiry ? "border-red-500" : "border-gray-300"
+                      }`}
+                    />
+                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                  {errors.warrantyExpiry && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.warrantyExpiry}
+                    </p>
+                  )}
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Warranty Expiry *
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  name="warrantyExpiry"
-                  value={formData.warrantyExpiry}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                    errors.warrantyExpiry ? "border-red-500" : "border-gray-300"
-                  }`}
-                />
-                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-              {errors.warrantyExpiry && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.warrantyExpiry}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Vendor *
-              </label>
-              <input
-                type="text"
-                name="vendor"
-                value={formData.vendor}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.vendor ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.vendor && (
-                <p className="text-red-500 text-xs mt-1">{errors.vendor}</p>
-              )}
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Vendor *
+                  </label>
+                  <input
+                    type="text"
+                    name="vendor"
+                    value={formData.vendor}
+                    onChange={handleChange}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                      errors.vendor ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  {errors.vendor && (
+                    <p className="text-red-500 text-xs mt-1">{errors.vendor}</p>
+                  )}
+                </div>
+              </>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -386,71 +441,87 @@ const AssetModal: React.FC<AssetModalProps> = ({
                 <p className="text-red-500 text-xs mt-1">{errors.location}</p>
               )}
             </div>
-          </div>
-
-          <div className="md:col-span-2">
+            {formData.type === "peripheral" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Item Name
+                </label>
+                <input
+                  type="text"
+                  name="itemName"
+                  value={formData.itemName}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    errors.itemName ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
+                {errors.itemName && (
+                  <p className="text-red-500 text-xs mt-1">{errors.itemName}</p>
+                )}
+              </div>
+            )}
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Specifications
+              </label>
+              <textarea
+                name="specifications"
+                value={formData.specifications}
+                onChange={handleChange}
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div className="md:col-span-3">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Specifications
+              Description
             </label>
             <textarea
-              name="specifications"
-              value={formData.specifications}
-              onChange={handleChange}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notes
-            </label>
-            <textarea
-              name="notes"
-              value={formData.notes}
+              name="description"
+              value={formData.description}
               onChange={handleChange}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? (
-                <svg
-                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              ) : asset ? (
-                "Update Asset"
-              ) : (
-                "Add Asset"
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? (
+              <svg
+                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+            ) : asset ? (
+              "Update Asset"
+            ) : (
+              "Add Asset"
+            )}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>
+);
 };
 
 export default AssetModal;

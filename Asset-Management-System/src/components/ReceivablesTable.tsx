@@ -1,10 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import type { Receivable, UserRole } from '../types/inventory';
-import { Edit, Trash2, Package, ArrowRight, Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, Upload, Eye, Plus } from 'lucide-react';
+import { Edit, Trash2, ArrowRight, Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, Upload, Plus } from 'lucide-react';
 import { addReceivables } from '../services/receivableService';
 import ImportModal from './ImportModal';
 import ViewDetailsModal from './ViewDetailsModal';
-import ReceivableModal from './ReceivableModal';
 import { useToast } from '../contexts/ToastContext';
 import { useStore } from '../store/store';
 
@@ -29,7 +28,7 @@ const ReceivablesTable: React.FC<ReceivablesTableProps> = ({ userRole, onEdit, o
       await addReceivables(data);
       onImport();
       showToast('Receivables imported successfully', 'success');
-    } catch (error) {
+    } catch {
       showToast('Error importing receivables', 'error');
     }
   };

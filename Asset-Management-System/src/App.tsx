@@ -22,7 +22,7 @@ import ReceivableModal from "./components/ReceivableModal";
 import LicenseModal from "./components/LicenseModal";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
-import { Plus, BarChart3, Table, Package, Key, LogOut, History, ArchiveRestore } from "lucide-react";
+import { BarChart3, Table, Package, Key, LogOut, History, ArchiveRestore } from "lucide-react";
 import { ToastProvider, useToast } from "./contexts/ToastContext";
 import AuditTrail from "./components/AuditTrail";
 import ConfirmationDialog from "./components/ConfirmationDialog";
@@ -89,10 +89,10 @@ function AppContent() {
         ...asset,
         retrievedDate: new Date().toISOString().split('T')[0],
         retrievedBy: currentUser?.email || 'Unknown User',
-      } as any;
+      } as unknown;
       await retrieveAsset(asset.id, retrieved, currentUser?.email || 'Unknown User');
       showToast("Asset moved to Retrieved", "success");
-    } catch (e) {
+    } catch {
       showToast("Error retrieving asset", "error");
     }
   };
@@ -239,7 +239,7 @@ function AppContent() {
         await addAsset(assetData, currentUser?.email || "Unknown User");
         showToast("Asset added successfully", "success");
       }
-    } catch (error) {
+    } catch {
       showToast("Error saving asset", "error");
     }
   };
@@ -270,7 +270,7 @@ function AppContent() {
         await addReceivable(receivableData, currentUser?.email || "Unknown User");
         showToast("Receivable added successfully", "success");
       }
-    } catch (error) {
+    } catch {
       showToast("Error saving receivable", "error");
     }
   };
@@ -305,7 +305,7 @@ function AppContent() {
         // Update receivable status to deployed
         await updateReceivable(receivable.id, { status: "deployed" }, currentUser?.email || "Unknown User");
         showToast("Receivable deployed successfully", "success");
-      } catch (error) {
+      } catch {
         showToast("Error deploying receivable", "error");
       }
     }
@@ -335,7 +335,7 @@ function AppContent() {
         await addLicense(licenseData, currentUser?.email || "Unknown User");
         showToast("License added successfully", "success");
       }
-    } catch (error) {
+    } catch {
       showToast("Error saving license", "error");
     }
   };
@@ -354,7 +354,7 @@ function AppContent() {
           await deleteLicense(id, currentUser?.email || "Unknown User");
           showToast("License deleted successfully", "success");
         }
-      } catch (error) {
+      } catch {
         showToast(`Error deleting ${type}`, "error");
       }
       setDeleteConfirmation(null);
@@ -378,33 +378,6 @@ function AppContent() {
     fetchAllData();
   };
 
-  const getAddButtonText = () => {
-    switch (currentView) {
-      case "inventory":
-        return "Add Asset";
-      case "receivables":
-        return "Add Receivable";
-      case "licenses":
-        return "Add License";
-      default:
-        return "Add Item";
-    }
-  };
-
-  const handleAddClick = () => {
-    switch (currentView) {
-      case "inventory":
-        handleAddAsset();
-        break;
-      case "receivables":
-        handleAddReceivable();
-        break;
-      case "licenses":
-        handleAddLicense();
-        break;
-    }
-  };
-
   const getExportHandler = () => {
     switch (currentView) {
       case "inventory":
@@ -415,19 +388,6 @@ function AppContent() {
         return handleExportLicenses;
       default:
         return handleExportAssets;
-    }
-  };
-
-  const getCurrentData = () => {
-    switch (currentView) {
-      case "inventory":
-        return filteredAssets;
-      case "receivables":
-        return filteredReceivables;
-      case "licenses":
-        return filteredLicenses;
-      default:
-        return [];
     }
   };
 

@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { Asset, Receivable, License } from '../types/inventory';
 import { 
   Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, 
-  AlertTriangle, Package, Key, TrendingUp, Clock, CheckCircle, Plus 
+  AlertTriangle, Package, Key, TrendingUp, Clock, CheckCircle 
 } from 'lucide-react';
-import AssetModal from './AssetModal';
-import LicenseModal from './LicenseModal';
-import ReceivableModal from './ReceivableModal';
 import { addAsset } from '../services/assetService';
 import { addLicense } from '../services/licenseService';
 import { addReceivable } from '../services/receivableService';
@@ -16,7 +13,6 @@ interface EnhancedDashboardProps {
   assets: Asset[];
   receivables: Receivable[];
   licenses: License[];
-  onImport: () => void;
   onAssetAdded: () => void;
   onLicenseAdded: () => void;
   onReceivableAdded: () => void;
@@ -26,14 +22,10 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
   assets, 
   receivables, 
   licenses, 
-  onImport, 
   onAssetAdded, 
   onLicenseAdded, 
   onReceivableAdded 
 }) => {
-  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
-  const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
-  const [isReceivableModalOpen, setIsReceivableModalOpen] = useState(false);
   const { currentUser } = useAuth();
 
   const handleAddAsset = async (asset: Omit<Asset, 'id'>) => {
@@ -69,24 +61,9 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'in-use': return 'text-green-600 bg-green-100';
-      case 'spare': return 'text-blue-600 bg-blue-100';
-      case 'repair': return 'text-amber-600 bg-amber-100';
-      case 'retired': return 'text-gray-600 bg-gray-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
   // Asset calculations
   const assetCounts = assets.reduce((acc, asset) => {
     acc[asset.type] = (acc[asset.type] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const statusCounts = assets.reduce((acc, asset) => {
-    acc[asset.status] = (acc[asset.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
