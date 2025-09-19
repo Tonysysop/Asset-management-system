@@ -3,7 +3,11 @@ export type AssetType =
   | "server"
   | "router"
   | "switch"
-  | "peripheral";
+  | "peripheral"
+  | "printer"
+  | "laptop"
+  | "desktop"
+  | "mobile";
 export type AssetStatus = "in-use" | "spare" | "repair" | "retired";
 export type UserRole = "admin" | "user" | "auditor";
 export type ReceivableStatus = "pending" | "received" | "deployed";
