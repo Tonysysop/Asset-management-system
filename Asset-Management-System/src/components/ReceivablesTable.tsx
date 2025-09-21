@@ -1,11 +1,26 @@
 import React, { useState } from 'react';
 import type { Receivable, UserRole } from '../types/inventory';
-import { Edit, Trash2, ArrowRight, Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, Upload, Plus } from 'lucide-react';
+import { Edit, Trash2, ArrowRight, Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, Upload, Plus, MoreVertical } from 'lucide-react';
 import { addReceivables } from '../services/receivableService';
 import ImportModal from './ImportModal';
 import ViewDetailsModal from './ViewDetailsModal';
 import { useToast } from '../contexts/ToastContext';
 import { useStore } from '../store/store';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from './ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
+import { Button } from './ui/button';
 
 interface ReceivablesTableProps {
   userRole: UserRole;
@@ -127,109 +142,47 @@ Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26
             </button>
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('itemName')}
-                >
-                  Item Name
-                </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('category')}
-                >
-                  Category
-                </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('brand')}
-                >
-                  Brand
-                </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('serialNumber')}
-                >
-                  Serial Number
-                </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('supplierName')}
-                >
-                  Supplier
-                </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('quantity')}
-                >
-                  Quantity
-                </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('status')}
-                >
-                  Status
-                </th>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead onClick={() => handleSort('itemName')}>Item Name</TableHead>
+                <TableHead onClick={() => handleSort('category')}>Category</TableHead>
+                <TableHead onClick={() => handleSort('brand')}>Brand</TableHead>
+                <TableHead onClick={() => handleSort('serialNumber')}>Serial Number</TableHead>
+                <TableHead onClick={() => handleSort('supplierName')}>Supplier</TableHead>
+                <TableHead onClick={() => handleSort('quantity')}>Quantity</TableHead>
+                <TableHead onClick={() => handleSort('status')}>Status</TableHead>
                 {(userRole === 'admin' || userRole === 'auditor') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <TableHead>Actions</TableHead>
                 )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {sortedReceivables.map((receivable) => (
-                <tr
-                  key={receivable.id}
-                  className="hover:bg-gray-50 transition-colors duration-150"
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {receivable.itemName}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {receivable.description}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                <TableRow key={receivable.id}>
+                  <TableCell>
+                    <div className="font-medium">{receivable.itemName}</div>
+                    <div className="text-sm text-muted-foreground">{receivable.description}</div>
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-center">
-                      <div className="text-gray-600 mr-2">
+                      <div className="mr-2">
                         {getAssetIcon(receivable.category)}
                       </div>
-                      <span className="text-sm text-gray-900 capitalize">
-                        {receivable.category}
-                      </span>
+                      <span className="capitalize">{receivable.category}</span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {receivable.brand}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {receivable.colour}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {receivable.serialNumber}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {receivable.supplierName}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Purchased: {receivable.purchaseDate}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {receivable.quantity}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  </TableCell>
+                  <TableCell>
+                    <div>{receivable.brand}</div>
+                    <div className="text-sm text-muted-foreground">{receivable.colour}</div>
+                  </TableCell>
+                  <TableCell>{receivable.serialNumber}</TableCell>
+                  <TableCell>
+                    <div>{receivable.supplierName}</div>
+                    <div className="text-sm text-muted-foreground">Purchased: {receivable.purchaseDate}</div>
+                  </TableCell>
+                  <TableCell>{receivable.quantity}</TableCell>
+                  <TableCell>
                     <span
                       className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
                         receivable.status
@@ -237,46 +190,43 @@ Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26
                     >
                       {receivable.status.toUpperCase()}
                     </span>
-                  </td>
+                  </TableCell>
                   {userRole === 'admin' && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <ViewDetailsModal item={receivable} title="Receivable Details" />
-                        {receivable.status === 'received' && (
-                          <button
-                            onClick={() => onDeploy(receivable)}
-                            className="text-green-600 hover:text-green-900 transition-colors duration-150"
-                            title="Deploy to Inventory"
-                          >
-                            <ArrowRight className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => onEdit(receivable)}
-                          className="text-blue-600 hover:text-blue-900 transition-colors duration-150"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onDelete(receivable.id)}
-                          className="text-red-600 hover:text-red-900 transition-colors duration-150"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem>
+                            <ViewDetailsModal item={receivable} title="Receivable Details" />
+                          </DropdownMenuItem>
+                          {receivable.status === 'received' && (
+                            <DropdownMenuItem onClick={() => onDeploy(receivable)}>
+                              <ArrowRight className="w-4 h-4 mr-2" /> Deploy
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => onEdit(receivable)}>
+                            <Edit className="w-4 h-4 mr-2" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onDelete(receivable.id)} className="text-red-600">
+                            <Trash2 className="w-4 h-4 mr-2" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   )}
                   {userRole === 'auditor' && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <ViewDetailsModal item={receivable} title="Receivable Details" />
-                      </div>
-                    </td>
+                    <TableCell>
+                      <ViewDetailsModal item={receivable} title="Receivable Details" />
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
       </div>
     </div>

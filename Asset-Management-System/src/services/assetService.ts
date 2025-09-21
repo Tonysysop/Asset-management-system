@@ -88,21 +88,25 @@ export const updateAsset = async (id: string, assetData: Partial<Asset>, user: s
   const newAssetData = updatedAssetDoc.data() as Asset;
 
   const changes = Object.keys(assetData).reduce((acc, key) => {
-    if (oldAssetData[key as keyof Asset] !== newAssetData[key as keyof Asset]) {
-      acc.push(`${key}: '${oldAssetData[key as keyof Asset]}' -> '${newAssetData[key as keyof Asset]}'`);
+    const oldValue = oldAssetData[key as keyof Asset];
+    const newValue = newAssetData[key as keyof Asset];
+    if (oldValue !== newValue) {
+      acc.push(`${key}: '${oldValue}' -> '${newValue}'`);
     }
     return acc;
   }, [] as string[]);
 
-  await addAction({
-    user,
-    actionType: "UPDATE",
-    itemType: "asset",
-    itemId: id,
-    assetTag: newAssetData.assetTag,
-    timestamp: new Date(),
-    details: `Updated asset with id ${id}. Changes: ${changes.join(', ')}`,
-  });
+  if (changes.length > 0) {
+    await addAction({
+      user,
+      actionType: "UPDATE",
+      itemType: "asset",
+      itemId: id,
+      assetTag: newAssetData.assetTag,
+      timestamp: new Date(),
+      details: `Updated asset with id ${id}. Changes: ${changes.join(', ')}`,
+    });
+  }
 };
 
 export const deleteAsset = async (id: string, user: string) => {

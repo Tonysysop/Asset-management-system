@@ -239,7 +239,8 @@ function AppContent() {
         await addAsset(assetData, currentUser?.email || "Unknown User");
         showToast("Asset added successfully", "success");
       }
-    } catch {
+    } catch (error) {
+      console.error("Error saving asset:", error);
       showToast("Error saving asset", "error");
     }
   };
