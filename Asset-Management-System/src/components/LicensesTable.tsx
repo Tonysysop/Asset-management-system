@@ -7,12 +7,28 @@ import {
   AlertTriangle,
   Upload,
   Plus,
+  MoreVertical,
 } from "lucide-react";
 import { addLicenses } from "../services/licenseService";
 import ImportModal from "./ImportModal";
 import ViewDetailsModal from "./ViewDetailsModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "./ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import { Button } from "./ui/button";
 
 interface LicensesTableProps {
   licenses: License[];
@@ -159,81 +175,35 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
         expectedHeaders={expectedLicenseHeaders}
       />
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("licenseName")}
-              >
-                License Name
-              </th>
-              <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("vendor")}
-              >
-                Vendor
-              </th>
-              <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("licenseType")}
-              >
-                Type
-              </th>
-              <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("seats")}
-              >
-                Seats
-              </th>
-              <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("assignedUser")}
-              >
-                Assigned To
-              </th>
-              <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("expiryDate")}
-              >
-                Expiry Date
-              </th>
-              <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort("status")}
-              >
-                Status
-              </th>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead onClick={() => handleSort("licenseName")}>License Name</TableHead>
+              <TableHead onClick={() => handleSort("vendor")}>Vendor</TableHead>
+              <TableHead onClick={() => handleSort("licenseType")}>Type</TableHead>
+              <TableHead onClick={() => handleSort("seats")}>Seats</TableHead>
+              <TableHead onClick={() => handleSort("assignedUser")}>Assigned To</TableHead>
+              <TableHead onClick={() => handleSort("expiryDate")}>Expiry Date</TableHead>
+              <TableHead onClick={() => handleSort("status")}>Status</TableHead>
               {(userRole === "admin" || userRole === "auditor") && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <TableHead>Actions</TableHead>
               )}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {sortedLicenses.map((license) => (
-              <tr
-                key={license.id}
-                className="hover:bg-gray-50 transition-colors duration-150"
-              >
-                <td className="px-6 py-4 whitespace-nowrap">
+              <TableRow key={license.id}>
+                <TableCell>
                   <div className="flex items-center">
                     <Key className="w-4 h-4 text-gray-600 mr-2" />
                     <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {license.licenseName}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {license.department}
-                      </div>
+                      <div className="font-medium">{license.licenseName}</div>
+                      <div className="text-sm text-muted-foreground">{license.department}</div>
                     </div>
                   </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{license.vendor}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                </TableCell>
+                <TableCell>{license.vendor}</TableCell>
+                <TableCell>
                   <span
                     className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       license.licenseType === "volume"
@@ -243,16 +213,16 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
                   >
                     {license.licenseType === "volume" ? "Volume" : "One-Off"}
                   </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
+                </TableCell>
+                <TableCell>
+                  <div className="font-medium">
                     {license.licenseType === "volume" && license.assignedUsers
                       ? `${license.assignedUsers.length}/${license.seats}`
                       : license.seats}
                   </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
+                </TableCell>
+                <TableCell>
+                  <div>
                     {license.licenseType === "volume" &&
                     license.assignedUsers &&
                     license.assignedUsers.length > 0
@@ -264,7 +234,7 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
                   {license.licenseType === "volume" &&
                     license.assignedUsers &&
                     license.assignedUsers.length > 0 && (
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-muted-foreground">
                         {license.assignedUsers
                           .slice(0, 2)
                           .map((user) => user.name)
@@ -273,17 +243,14 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
                           ` +${license.assignedUsers.length - 2} more`}
                       </div>
                     )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                </TableCell>
+                <TableCell>
                   <div
-                    className={`text-sm ${
-                      isExpired(license.expiryDate)
+                    className={`${isExpired(license.expiryDate)
                         ? "text-red-600 font-medium"
                         : isExpiringSoon(license.expiryDate)
                         ? "text-amber-600 font-medium"
-                        : "text-gray-900"
-                    }`}
-                  >
+                        : ""}`}>
                     {license.expiryDate}
                   </div>
                   {(isExpired(license.expiryDate) ||
@@ -295,8 +262,8 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
                         : "Expiring Soon"}
                     </div>
                   )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                </TableCell>
+                <TableCell>
                   <span
                     className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
                       license.status
@@ -304,43 +271,38 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
                   >
                     {license.status.replace("-", " ").toUpperCase()}
                   </span>
-                </td>
+                </TableCell>
                 {userRole === "admin" && (
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <ViewDetailsModal
-                        item={license}
-                        title="License Details"
-                      />
-                      <button
-                        onClick={() => onEdit(license)}
-                        className="text-blue-600 hover:text-blue-900 transition-colors duration-150"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => onDelete(license.id)}
-                        className="text-red-600 hover:text-red-900 transition-colors duration-150"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem>
+                          <ViewDetailsModal item={license} title="License Details" />
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onEdit(license)}>
+                          <Edit className="w-4 h-4 mr-2" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onDelete(license.id)} className="text-red-600">
+                          <Trash2 className="w-4 h-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
                 )}
                 {userRole === "auditor" && (
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <ViewDetailsModal
-                        item={license}
-                        title="License Details"
-                      />
-                    </div>
-                  </td>
+                  <TableCell>
+                    <ViewDetailsModal item={license} title="License Details" />
+                  </TableCell>
                 )}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

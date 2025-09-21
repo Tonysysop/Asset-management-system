@@ -9,6 +9,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from './ui/table';
 
 const AuditTrail: React.FC = () => {
   const [actions, setActions] = useState<Action[]>([]);
@@ -34,32 +42,32 @@ const AuditTrail: React.FC = () => {
         <h2 className="text-xl font-semibold">Audit Trail</h2>
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 table-fixed">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">User</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">Action</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">Item Type</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">Item ID / Asset Tag</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">Timestamp</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">Details</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">View</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>User</TableHead>
+              <TableHead>Action</TableHead>
+              <TableHead>Item Type</TableHead>
+              <TableHead>Item ID / Asset Tag</TableHead>
+              <TableHead>Timestamp</TableHead>
+              <TableHead>Details</TableHead>
+              <TableHead>View</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {actions.map((action) => (
-              <tr key={action.id}>
-                <td className="px-6 py-4 whitespace-nowrap truncate">{action.user}</td>
-                <td className="px-6 py-4 whitespace-nowrap truncate">{action.actionType}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{action.itemType}</td>
-                <td className="px-6 py-4 whitespace-nowrap truncate">{getItemId(action)}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{new Date(action.timestamp).toLocaleString()}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
+              <TableRow key={action.id}>
+                <TableCell className="truncate">{action.user}</TableCell>
+                <TableCell className="truncate">{action.actionType}</TableCell>
+                <TableCell>{action.itemType}</TableCell>
+                <TableCell className="truncate">{getItemId(action)}</TableCell>
+                <TableCell>{new Date(action.timestamp).toLocaleString()}</TableCell>
+                <TableCell>
                   <div className="max-w-xs truncate" title={action.details}>
                     {action.details}
                   </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                </TableCell>
+                <TableCell>
                   <Dialog>
                     <DialogTrigger asChild>
                       <button className="text-blue-600 hover:text-blue-900">
@@ -80,11 +88,11 @@ const AuditTrail: React.FC = () => {
                       </div>
                     </DialogContent>
                   </Dialog>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

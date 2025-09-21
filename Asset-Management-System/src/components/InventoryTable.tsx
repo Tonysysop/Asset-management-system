@@ -1,13 +1,27 @@
-import DropdownMenu from './DropdownMenu';
 import React, { useState } from 'react';
 import type { Asset, UserRole } from '../types/inventory';
 import { Edit, Trash2, Monitor, Laptop, Printer, Server, Router, Smartphone, HardDrive, Upload, Plus, MoreVertical, ArchiveRestore } from 'lucide-react';
+import { Button } from './ui/button';
 import { addAssets } from '../services/assetService';
 import ImportModal from './ImportModal';
 import ViewDetailsModal from './ViewDetailsModal';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmationDialog from './ConfirmationDialog';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from './ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 
 interface InventoryTableProps {
   assets: Asset[];
@@ -149,143 +163,96 @@ AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-1
             )}
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('assetTag')}
-                >
-                  Asset Tag
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('type')}
-                >
-                  Type
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('brand')}
-                >
-                  Brand/Model
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('assignedUser')}
-                >
-                  Assigned User
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('department')}
-                >
-                  Department
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('status')}
-                >
-                  Status
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('warrantyExpiry')}
-                >
-                  Warranty
-                </th>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead onClick={() => handleSort('assetTag')}>Asset Tag</TableHead>
+                <TableHead onClick={() => handleSort('type')}>Type</TableHead>
+                <TableHead onClick={() => handleSort('brand')}>Brand/Model</TableHead>
+                <TableHead onClick={() => handleSort('assignedUser')}>Assigned User</TableHead>
+                <TableHead onClick={() => handleSort('department')}>Department</TableHead>
+                <TableHead onClick={() => handleSort('status')}>Status</TableHead>
+                <TableHead onClick={() => handleSort('warrantyExpiry')}>Warranty</TableHead>
                 {(userRole === 'admin' || userRole === 'auditor') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <TableHead>Actions</TableHead>
                 )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {sortedAssets.map((asset) => (
-                <tr key={asset.id} className="hover:bg-gray-50 transition-colors duration-150">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{asset.assetTag}</div>
-                    <div className="text-sm text-gray-500">{asset.serialNumber}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                <TableRow key={asset.id}>
+                  <TableCell>
+                    <div className="font-medium">{asset.assetTag}</div>
+                    <div className="text-sm text-muted-foreground">{asset.serialNumber}</div>
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-center">
-                      <div className="text-gray-600 mr-2">
+                      <div className="mr-2">
                         {getAssetIcon(asset.type)}
                       </div>
-                      <span className="text-sm text-gray-900 capitalize">{asset.type}</span>
+                      <span className="capitalize">{asset.type}</span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{asset.brand}</div>
-                    <div className="text-sm text-gray-500">{asset.model}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{asset.assignedUser}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{asset.department}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{asset.brand}</div>
+                    <div className="text-sm text-muted-foreground">{asset.model}</div>
+                  </TableCell>
+                  <TableCell>{asset.assignedUser}</TableCell>
+                  <TableCell>{asset.department}</TableCell>
+                  <TableCell>
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(asset.status)}`}>
                       {asset.status.replace('-', ' ').toUpperCase()}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm ${isWarrantyExpiring(asset.warrantyExpiry) ? 'text-amber-600 font-medium' : 'text-gray-900'}`}>
+                  </TableCell>
+                  <TableCell>
+                    <div className={`${isWarrantyExpiring(asset.warrantyExpiry) ? 'text-amber-600 font-medium' : ''}`}>
                       {asset.warrantyExpiry}
                     </div>
                     {isWarrantyExpiring(asset.warrantyExpiry) && (
                       <div className="text-xs text-amber-600">Expiring Soon</div>
                     )}
-                  </td>
+                  </TableCell>
                   {userRole === 'admin' && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <DropdownMenu
-                        trigger={
-                          <button type="button" className="text-gray-600 hover:text-gray-900 transition-colors duration-150">
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
                             <MoreVertical className="w-4 h-4" />
-                          </button>
-                        }
-                        direction="right"
-                      >
-                        <div className="origin-top-right absolute right-0 mt-2 w-32 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20">
-                          <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabIndex={-1}>
-                            <div className="px-1">
-                              <ViewDetailsModal item={asset} title="Asset Details" />
-                            </div>
-                            <button type="button" onClick={() => onEdit(asset)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center" role="menuitem">
-                              <Edit className="w-4 h-4 mr-2" /> Edit
-                            </button>
-                            <button type="button" onClick={() => onDelete(asset.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-red-600 flex items-center" role="menuitem">
-                              <Trash2 className="w-4 h-4 mr-2" /> Delete
-                            </button>
-                            {onRetrieve && !isRetrievedView && (
-                              <button type="button" onClick={() => setAssetToRetrieve(asset)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center" role="menuitem">
-                                <ArchiveRestore className="w-4 h-4 mr-2" /> Retrieve
-                              </button>
-                            )}
-                            {isRetrievedView && (
-                              <button type="button" onClick={() => onEdit(asset)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center" role="menuitem">
-                                <ArchiveRestore className="w-4 h-4 mr-2" /> Redeploy
-                              </button>
-                            )}
-                          </div>
-                        </div>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem>
+                            <ViewDetailsModal item={asset} title="Asset Details" />
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onEdit(asset)}>
+                            <Edit className="w-4 h-4 mr-2" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onDelete(asset.id)} className="text-red-600">
+                            <Trash2 className="w-4 h-4 mr-2" /> Delete
+                          </DropdownMenuItem>
+                          {onRetrieve && !isRetrievedView && (
+                            <DropdownMenuItem onClick={() => setAssetToRetrieve(asset)}>
+                              <ArchiveRestore className="w-4 h-4 mr-2" /> Retrieve
+                            </DropdownMenuItem>
+                          )}
+                          {isRetrievedView && (
+                            <DropdownMenuItem onClick={() => onEdit(asset)}>
+                              <ArchiveRestore className="w-4 h-4 mr-2" /> Redeploy
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
                       </DropdownMenu>
-                    </td>
+                    </TableCell>
                   )}
                   {userRole === 'auditor' && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <ViewDetailsModal item={asset} title="Asset Details" />
-                      </div>
-                    </td>
+                    <TableCell>
+                      <ViewDetailsModal item={asset} title="Asset Details" />
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
       </div>
       {assetToRetrieve && (
