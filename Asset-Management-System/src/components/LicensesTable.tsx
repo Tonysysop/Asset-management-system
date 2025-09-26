@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import type { License, UserRole } from "../types/inventory";
 import {
   Edit,
@@ -14,6 +14,15 @@ import ImportModal from "./ImportModal";
 import ViewDetailsModal from "./ViewDetailsModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "./ui/pagination";
 import {
   Table,
   TableHeader,
@@ -52,6 +61,8 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
   const [sortField, setSortField] = useState<keyof License>("licenseName");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const handleFileImport = async (data: Omit<License, "id">[]) => {
     try {
@@ -73,7 +84,7 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
     "The CSV file must have the following columns: licenseName, vendor, licenseKey, licenseType, seats, purchaseDate, expiryDate, assignedUser, department, notes, status",
     "The licenseType must be one of: one-off, volume",
     "The status must be one of: active, expired, expiring-soon",
-    "Dates should be in YYYY-MM-DD format.",
+    "Dates can be in any format (MM/DD/YYYY, YYYY-MM-DD, etc.) and will be automatically converted to 'October 15th, 2025' format.",
   ];
 
   const expectedLicenseHeaders = [
@@ -126,41 +137,54 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
     }
   };
 
-  const sortedLicenses = [...licenses].sort((a, b) => {
-    const aValue = a[sortField];
-    const bValue = b[sortField];
+  const sortedLicenses = useMemo(() => {
+    return [...licenses].sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
 
-    // Handle undefined values
-    if (aValue === undefined && bValue === undefined) return 0;
-    if (aValue === undefined) return sortDirection === "asc" ? 1 : -1;
-    if (bValue === undefined) return sortDirection === "asc" ? -1 : 1;
+      // Handle undefined values
+      if (aValue === undefined && bValue === undefined) return 0;
+      if (aValue === undefined) return sortDirection === "asc" ? 1 : -1;
+      if (bValue === undefined) return sortDirection === "asc" ? -1 : 1;
 
-    if (sortField === 'seats') {
-      const aSeats = typeof aValue === 'number' ? aValue : 0;
-      const bSeats = typeof bValue === 'number' ? bValue : 0;
-      if (aSeats < bSeats) return sortDirection === "asc" ? -1 : 1;
-      if (aSeats > bSeats) return sortDirection === "asc" ? 1 : -1;
+      if (sortField === "seats") {
+        const aSeats = typeof aValue === "number" ? aValue : 0;
+        const bSeats = typeof bValue === "number" ? bValue : 0;
+        if (aSeats < bSeats) return sortDirection === "asc" ? -1 : 1;
+        if (aSeats > bSeats) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
       return 0;
-    }
+    });
+  }, [licenses, sortField, sortDirection]);
 
-    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
-    return 0;
-  });
+  // Pagination logic
+  const totalPages = Math.ceil(sortedLicenses.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedLicenses = sortedLicenses.slice(startIndex, endIndex);
+
+  // Reset to first page when licenses change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [licenses.length]);
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       <div className="p-4 flex justify-end space-x-4">
         <button
           onClick={() => onAdd()}
-          className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          className="flex items-center px-4 py-2 bg-bua-red text-white rounded-md hover:bg-bua-dark-red"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add License
         </button>
         <button
           onClick={() => setIsImportModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          className="flex items-center px-4 py-2 bg-bua-red text-white rounded-md hover:bg-bua-dark-red"
         >
           <Upload className="w-4 h-4 mr-2" />
           Import CSV
@@ -173,17 +197,26 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
         sampleData={licenseSampleData}
         instructions={licenseInstructions}
         expectedHeaders={expectedLicenseHeaders}
+        importType="licenses"
       />
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead onClick={() => handleSort("licenseName")}>License Name</TableHead>
+              <TableHead onClick={() => handleSort("licenseName")}>
+                License Name
+              </TableHead>
               <TableHead onClick={() => handleSort("vendor")}>Vendor</TableHead>
-              <TableHead onClick={() => handleSort("licenseType")}>Type</TableHead>
+              <TableHead onClick={() => handleSort("licenseType")}>
+                Type
+              </TableHead>
               <TableHead onClick={() => handleSort("seats")}>Seats</TableHead>
-              <TableHead onClick={() => handleSort("assignedUser")}>Assigned To</TableHead>
-              <TableHead onClick={() => handleSort("expiryDate")}>Expiry Date</TableHead>
+              <TableHead onClick={() => handleSort("assignedUser")}>
+                Assigned To
+              </TableHead>
+              <TableHead onClick={() => handleSort("expiryDate")}>
+                Expiry Date
+              </TableHead>
               <TableHead onClick={() => handleSort("status")}>Status</TableHead>
               {(userRole === "admin" || userRole === "auditor") && (
                 <TableHead>Actions</TableHead>
@@ -191,14 +224,16 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedLicenses.map((license) => (
+            {paginatedLicenses.map((license) => (
               <TableRow key={license.id}>
                 <TableCell>
                   <div className="flex items-center">
                     <Key className="w-4 h-4 text-gray-600 mr-2" />
                     <div>
                       <div className="font-medium">{license.licenseName}</div>
-                      <div className="text-sm text-muted-foreground">{license.department}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {license.department}
+                      </div>
                     </div>
                   </div>
                 </TableCell>
@@ -246,11 +281,14 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
                 </TableCell>
                 <TableCell>
                   <div
-                    className={`${isExpired(license.expiryDate)
+                    className={`${
+                      isExpired(license.expiryDate)
                         ? "text-red-600 font-medium"
                         : isExpiringSoon(license.expiryDate)
                         ? "text-amber-600 font-medium"
-                        : ""}`}>
+                        : ""
+                    }`}
+                  >
                     {license.expiryDate}
                   </div>
                   {(isExpired(license.expiryDate) ||
@@ -282,12 +320,18 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
                         <DropdownMenuItem>
-                          <ViewDetailsModal item={license} title="License Details" />
+                          <ViewDetailsModal
+                            item={license}
+                            title="License Details"
+                          />
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onEdit(license)}>
                           <Edit className="w-4 h-4 mr-2" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onDelete(license.id)} className="text-red-600">
+                        <DropdownMenuItem
+                          onClick={() => onDelete(license.id)}
+                          className="text-red-600"
+                        >
                           <Trash2 className="w-4 h-4 mr-2" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -304,6 +348,79 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t">
+          <div className="text-sm text-muted-foreground">
+            Showing {startIndex + 1} to{" "}
+            {Math.min(endIndex, sortedLicenses.length)} of{" "}
+            {sortedLicenses.length} licenses
+          </div>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
+                  className={
+                    currentPage === 1
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+
+              {/* Page numbers */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => {
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  } else if (
+                    page === currentPage - 2 ||
+                    page === currentPage + 2
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    );
+                  }
+                  return null;
+                }
+              )}
+
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  className={
+                    currentPage === totalPages
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </div>
   );
 };
