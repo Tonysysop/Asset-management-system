@@ -1,493 +1,1458 @@
-import React, { useState, useEffect } from "react";
-import type { Asset, AssetType, AssetStatus } from "@/types/inventory";
-import { Calendar, AlertTriangle } from "lucide-react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-} from "./ui/dialog";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Textarea } from "./ui/textarea";
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { CalendarIcon, Save, X } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/useToast";
+import type { Asset, AssetType, AssetStatus } from "@/types/inventory";
 
-interface AssetModalProps {
+interface AssetFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (asset: Omit<Asset, "id">) => Promise<void>;
+  onSave: (assetData: Omit<Asset, "id">) => void;
   asset?: Asset;
+  isRedeploying?: boolean;
 }
 
-const AssetModal: React.FC<AssetModalProps> = ({
+interface AssetFormData {
+  assetTag: string;
+  serialNumber: string;
+  assetType: string;
+  computeType?: string;
+  imeiNumber?: string;
+  peripheralType?: string;
+  networkType?: string;
+  itemName?: string;
+  status: string;
+  brand: string;
+  model: string;
+  deployedDate: Date | undefined;
+  warrantyExpiration: Date | undefined;
+  vendor: string;
+  assignedUser: string;
+  department: string;
+  location: string;
+  specifications: string;
+  description: string;
+
+  // Monitor specific fields
+  screenSize?: string;
+  resolution?: string;
+  connectionType?: string;
+  purchaseDate?: Date | undefined;
+
+  // Network Asset specific fields
+  firmwareVersion?: string;
+  ipAddress?: string;
+  macAddress?: string;
+  numberOfPorts?: string;
+  rackPosition?: string;
+  configBackupLocation?: string;
+  uplinkDownlinkInfo?: string;
+  poeSupport?: string;
+  stackClusterMembership?: string;
+
+  // Server specific fields
+  hostname?: string;
+  processor?: string;
+  ramSize?: string;
+  storage?: string;
+  operatingSystem?: string;
+  productionIpAddress?: string;
+  managementMacAddress?: string;
+  powerSupply?: string;
+  serverRole?: string;
+  installedApplications?: string;
+}
+
+const initialFormData: AssetFormData = {
+  assetTag: "",
+  serialNumber: "",
+  assetType: "",
+  computeType: "",
+  imeiNumber: "",
+  peripheralType: "",
+  networkType: "",
+  itemName: "",
+  status: "",
+  brand: "",
+  model: "",
+  deployedDate: undefined,
+  warrantyExpiration: undefined,
+  vendor: "",
+  assignedUser: "",
+  department: "",
+  location: "",
+  specifications: "",
+  description: "",
+
+  // Monitor specific fields
+  screenSize: "",
+  resolution: "",
+  connectionType: "",
+  purchaseDate: undefined,
+
+  // Network Asset specific fields
+  firmwareVersion: "",
+  ipAddress: "",
+  macAddress: "",
+  numberOfPorts: "",
+  rackPosition: "",
+  configBackupLocation: "",
+  uplinkDownlinkInfo: "",
+  poeSupport: "",
+  stackClusterMembership: "",
+
+  // Server specific fields
+  hostname: "",
+  processor: "",
+  ramSize: "",
+  storage: "",
+  operatingSystem: "",
+  productionIpAddress: "",
+  managementMacAddress: "",
+  powerSupply: "",
+  serverRole: "",
+  installedApplications: "",
+};
+
+const assetTypes = [
+  { value: "compute", label: "Compute" },
+  { value: "server", label: "Server" },
+  { value: "peripheral", label: "Peripherals" },
+  { value: "router", label: "Router" },
+  { value: "switch", label: "Switch" },
+];
+
+const statusOptions = [
+  { value: "in-use", label: "In Use" },
+  { value: "repaired", label: "Repaired" },
+  { value: "retired", label: "Retired" },
+  { value: "spare", label: "Spare" },
+];
+
+const computeTypes = [
+  { value: "laptop", label: "Laptop" },
+  { value: "desktop", label: "Desktop" },
+  { value: "mobile", label: "Mobile" },
+];
+
+const peripheralTypes = [
+  { value: "printer", label: "Printer" },
+  { value: "scanner", label: "Scanner" },
+  { value: "monitor", label: "Monitor" },
+];
+
+const networkTypes = [
+  { value: "router", label: "Router" },
+  { value: "switch", label: "Switch" },
+];
+
+const connectionTypes = [
+  { value: "hdmi", label: "HDMI" },
+  { value: "displayport", label: "DisplayPort" },
+  { value: "vga", label: "VGA" },
+  { value: "dvi", label: "DVI" },
+  { value: "usb-c", label: "USB-C" },
+];
+
+const serverRoles = [
+  { value: "domain-controller", label: "Domain Controller" },
+  { value: "file-server", label: "File Server" },
+  { value: "web-server", label: "Web Server" },
+  { value: "database-server", label: "Database Server" },
+  { value: "vm-host", label: "VM Host" },
+  { value: "backup-server", label: "Backup Server" },
+  { value: "print-server", label: "Print Server" },
+];
+
+export function AssetFormModal({
   isOpen,
   onClose,
   onSave,
   asset,
-}) => {
-  const [formData, setFormData] = useState<Omit<Asset, "id">>({
-    assetTag: "",
-    serialNumber: "",
-    type: "compute",
-    brand: "",
-    model: "",
-    specifications: "",
-    deployedDate: "",
-    warrantyExpiry: "",
-    vendor: "",
-    assignedUser: "",
-    department: "",
-    status: "spare",
-    location: "",
-    notes: "",
-    description: "",
-    peripheralType: "printer",
-    itemName: "",
-    computeType: "laptop",
-  });
+  isRedeploying = false,
+}: AssetFormModalProps) {
+  const [formData, setFormData] = useState<AssetFormData>(initialFormData);
+  const { toast } = useToast();
 
-  const [isSaving, setIsSaving] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [serverError, setServerError] = useState<string | null>(null);
-
+  // Populate form when editing an asset
   useEffect(() => {
     if (asset) {
       setFormData({
-        assetTag: asset.assetTag,
-        serialNumber: asset.serialNumber,
-        type: asset.type,
-        brand: asset.brand,
-        model: asset.model,
-        specifications: asset.specifications,
-        deployedDate: asset.deployedDate,
-        warrantyExpiry: asset.warrantyExpiry,
-        vendor: asset.vendor,
-        assignedUser: asset.assignedUser,
-        department: asset.department,
-        status: asset.status,
-        location: asset.location,
-        notes: asset.notes,
-        description: asset.description || "",
-        peripheralType: asset.peripheralType || "printer",
+        assetTag: asset.assetTag || "",
+        serialNumber: asset.serialNumber || "",
+        assetType: asset.type || "",
+        computeType:
+          asset.computeType || (asset.type === "compute" ? "laptop" : ""),
+        imeiNumber: "",
+        peripheralType:
+          asset.peripheralType ||
+          (asset.type === "peripheral" ? "printer" : ""),
+        networkType: "",
         itemName: asset.itemName || "",
-        computeType: asset.computeType || "laptop",
+        status: asset.status || "",
+        brand: asset.brand || "",
+        model: asset.model || "",
+        deployedDate: asset.deployedDate
+          ? new Date(asset.deployedDate)
+          : undefined,
+        warrantyExpiration: asset.warrantyExpiry
+          ? new Date(asset.warrantyExpiry)
+          : undefined,
+        vendor: asset.vendor || "",
+        assignedUser: asset.assignedUser || "",
+        department: asset.department || "",
+        location: asset.location || "",
+        specifications: asset.specifications || "",
+        description: asset.notes || "",
+        // Monitor specific fields
+        screenSize: "",
+        resolution: "",
+        connectionType: "",
+        purchaseDate: undefined,
+        // Network Asset specific fields
+        firmwareVersion: "",
+        ipAddress: "",
+        macAddress: "",
+        numberOfPorts: "",
+        rackPosition: "",
+        configBackupLocation: "",
+        uplinkDownlinkInfo: "",
+        poeSupport: "",
+        stackClusterMembership: "",
+        // Server specific fields
+        hostname: "",
+        processor: "",
+        ramSize: "",
+        storage: "",
+        operatingSystem: "",
+        productionIpAddress: "",
+        managementMacAddress: "",
+        powerSupply: "",
+        serverRole: "",
+        installedApplications: "",
       });
     } else {
-      setFormData({
-        assetTag: "",
-        serialNumber: "",
-        type: "compute",
-        brand: "",
-        model: "",
-        specifications: "",
-        deployedDate: "",
-        warrantyExpiry: "",
-        vendor: "",
-        assignedUser: "",
-        department: "",
-        status: "spare",
-        location: "",
-        notes: "",
-        description: "",
-        peripheralType: "printer",
-        itemName: "",
-        computeType: "laptop",
-      });
+      setFormData(initialFormData);
     }
-    setErrors({});
-    setServerError(null);
-  }, [asset, isOpen]);
+  }, [asset]);
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
+  const handleInputChange = (field: keyof AssetFormData, value: string) => {
+    setFormData((prev) => {
+      const newData = { ...prev, [field]: value };
 
-    if (!formData.assetTag.trim()) newErrors.assetTag = "Asset tag is required";
-    if (!formData.serialNumber.trim())
-      newErrors.serialNumber = "Serial number is required";
-    if (!formData.brand.trim()) newErrors.brand = "Brand is required";
-    if (!formData.model.trim()) newErrors.model = "Model is required";
-    if (formData.type === "compute") {
-      if (!formData.deployedDate)
-        newErrors.deployedDate = "Deployed date is required";
-      if (!formData.warrantyExpiry)
-        newErrors.warrantyExpiry = "Warranty expiry is required";
-      if (!formData.vendor.trim()) newErrors.vendor = "Vendor is required";
-    } else if (formData.type === "peripheral") {
-      if (!formData.itemName.trim()) newErrors.itemName = "Item name is required";
-    }
-    if (!formData.department.trim())
-      newErrors.department = "Department is required";
-    if (!formData.location.trim()) newErrors.location = "Location is required";
+      // Reset dependent fields when asset type changes
+      if (field === "assetType") {
+        newData.computeType = "";
+        newData.imeiNumber = "";
+        newData.peripheralType = "";
+        newData.networkType = "";
+        newData.itemName = "";
+        // Reset monitor fields
+        newData.screenSize = "";
+        newData.resolution = "";
+        newData.connectionType = "";
+        newData.purchaseDate = undefined;
+        // Reset network fields
+        newData.firmwareVersion = "";
+        newData.ipAddress = "";
+        newData.macAddress = "";
+        newData.numberOfPorts = "";
+        newData.rackPosition = "";
+        newData.configBackupLocation = "";
+        newData.uplinkDownlinkInfo = "";
+        newData.poeSupport = "";
+        newData.stackClusterMembership = "";
+        // Reset server fields
+        newData.hostname = "";
+        newData.processor = "";
+        newData.ramSize = "";
+        newData.storage = "";
+        newData.operatingSystem = "";
+        newData.productionIpAddress = "";
+        newData.managementMacAddress = "";
+        newData.powerSupply = "";
+        newData.serverRole = "";
+        newData.installedApplications = "";
+      }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+      // Reset IMEI when compute type changes
+      if (field === "computeType" && value !== "mobile") {
+        newData.imeiNumber = "";
+      }
+
+      // Reset monitor fields when peripheral type changes
+      if (field === "peripheralType" && value !== "monitor") {
+        newData.screenSize = "";
+        newData.resolution = "";
+        newData.connectionType = "";
+        newData.purchaseDate = undefined;
+      }
+
+      // Reset network-specific fields when network type changes
+      if (field === "networkType") {
+        if (value !== "switch") {
+          newData.poeSupport = "";
+          newData.stackClusterMembership = "";
+        }
+      }
+
+      return newData;
+    });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleDateChange = (
+    field: "deployedDate" | "warrantyExpiration" | "purchaseDate",
+    date: Date | undefined
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: date,
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      setIsSaving(true);
-      try {
-        await onSave(formData);
-        onClose();
-      } catch (error: unknown) {
-        setServerError((error as Error).message);
-      } finally {
-        setIsSaving(false);
+
+    // Basic validation
+    if (
+      !formData.assetTag ||
+      !formData.serialNumber ||
+      !formData.assetType ||
+      !formData.status
+    ) {
+      toast({
+        title: "Validation Error",
+        description:
+          "Please fill in all required fields (Asset Tag, Serial Number, Asset Type, Status).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Asset type specific validation
+    if (formData.assetType === "compute" && !formData.computeType) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a compute type.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.assetType === "peripheral") {
+      if (!formData.peripheralType) {
+        toast({
+          title: "Validation Error",
+          description: "Please select a peripheral type.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (formData.peripheralType !== "monitor" && !formData.itemName) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in Item Name.",
+          variant: "destructive",
+        });
+        return;
       }
     }
-  };
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement
-    >
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
+    if (formData.assetType === "server") {
+      if (!formData.hostname || !formData.processor || !formData.ramSize) {
+        toast({
+          title: "Validation Error",
+          description:
+            "Please fill in Hostname, Processor, and RAM Size for servers.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
-    setServerError(null);
+
+    // Convert form data to Asset format and call onSave
+    const assetData: Omit<Asset, "id"> = {
+      assetTag: formData.assetTag,
+      serialNumber: formData.serialNumber,
+      type: formData.assetType as AssetType,
+      brand: formData.brand,
+      model: formData.model,
+      specifications: formData.specifications,
+      deployedDate: formData.deployedDate?.toISOString().split("T")[0] || "",
+      warrantyExpiry:
+        formData.warrantyExpiration?.toISOString().split("T")[0] || "",
+      vendor: formData.vendor,
+      assignedUser: formData.assignedUser,
+      department: formData.department,
+      status: formData.status as AssetStatus,
+      location: formData.location,
+      notes: formData.description,
+    };
+
+    onSave(assetData);
+
+    // Reset form and close modal
+    setFormData(initialFormData);
+    onClose();
   };
 
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
-    }
-    setServerError(null);
+  const handleCancel = () => {
+    setFormData(initialFormData);
+    onClose();
   };
 
-  const assetTypes: AssetType[] = [
-    "compute",
-    "server",
-    "router",
-    "switch",
-    "peripheral",
-  ];
-  const assetStatuses: AssetStatus[] = ["in-use", "spare", "repair", "retired"];
-  const peripheralTypes = ["printer", "scanner"];
-  const computeTypes = ["laptop", "desktop", "mobile"];
+  const handleClose = () => {
+    setFormData(initialFormData);
+    onClose();
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-screen-lg w-full p-8">
-        <DialogHeader>
-          <DialogTitle>{asset ? "Edit Asset" : "Add New Asset"}</DialogTitle>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-4xl max-w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto bg-card border-border shadow-lg">
+        <DialogHeader className="pb-6">
+          <DialogTitle className="text-2xl font-semibold text-card-foreground">
+            {isRedeploying
+              ? "Redeploy Asset"
+              : asset
+              ? "Edit Asset"
+              : "Add New Asset"}
+          </DialogTitle>
+          <DialogDescription>
+            {isRedeploying
+              ? "Update asset details before redeploying to inventory."
+              : asset
+              ? "Modify the asset information below."
+              : "Fill in the details to add a new asset to the inventory."}
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {serverError && (
-            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
-              <div className="flex">
-                <div className="py-1"><AlertTriangle className="h-6 w-6 text-red-500 mr-4" /></div>
-                <div>
-                  <p className="font-bold">Error</p>
-                  <p className="text-sm">{serverError}</p>
+
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Basic Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label
+                htmlFor="assetTag"
+                className="text-sm font-medium text-foreground"
+              >
+                Asset Tag *
+              </Label>
+              <Input
+                id="assetTag"
+                value={formData.assetTag}
+                onChange={(e) => handleInputChange("assetTag", e.target.value)}
+                placeholder="Enter asset tag"
+                className="border-input focus:border-ring bg-background"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="serialNumber"
+                className="text-sm font-medium text-foreground"
+              >
+                Serial Number *
+              </Label>
+              <Input
+                id="serialNumber"
+                value={formData.serialNumber}
+                onChange={(e) =>
+                  handleInputChange("serialNumber", e.target.value)
+                }
+                placeholder="Enter serial number"
+                className="border-input focus:border-ring bg-background"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="assetType"
+                className="text-sm font-medium text-foreground"
+              >
+                Asset Type *
+              </Label>
+              <Select
+                value={formData.assetType}
+                onValueChange={(value) => handleInputChange("assetType", value)}
+              >
+                <SelectTrigger className="border-input focus:border-ring bg-background">
+                  <SelectValue placeholder="Select asset type" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  {assetTypes.map((type) => (
+                    <SelectItem
+                      key={type.value}
+                      value={type.value}
+                      className="hover:bg-accent"
+                    >
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="status"
+                className="text-sm font-medium text-foreground"
+              >
+                Status *
+              </Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => handleInputChange("status", value)}
+              >
+                <SelectTrigger className="border-input focus:border-ring bg-background">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  {statusOptions.map((status) => (
+                    <SelectItem
+                      key={status.value}
+                      value={status.value}
+                      className="hover:bg-accent"
+                    >
+                      {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Dynamic fields based on asset type */}
+            {formData.assetType === "compute" && (
+              <div className="space-y-2">
+                <Label
+                  htmlFor="computeType"
+                  className="text-sm font-medium text-foreground"
+                >
+                  Compute Type *
+                </Label>
+                <Select
+                  value={formData.computeType}
+                  onValueChange={(value) =>
+                    handleInputChange("computeType", value)
+                  }
+                >
+                  <SelectTrigger className="border-input focus:border-ring bg-background">
+                    <SelectValue placeholder="Select compute type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    {computeTypes.map((type) => (
+                      <SelectItem
+                        key={type.value}
+                        value={type.value}
+                        className="hover:bg-accent"
+                      >
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {formData.assetType === "compute" &&
+              formData.computeType === "mobile" && (
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="imeiNumber"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    IMEI Number
+                  </Label>
+                  <Input
+                    id="imeiNumber"
+                    value={formData.imeiNumber || ""}
+                    onChange={(e) =>
+                      handleInputChange("imeiNumber", e.target.value)
+                    }
+                    placeholder="Enter IMEI number"
+                    className="border-input focus:border-ring bg-background"
+                  />
+                </div>
+              )}
+
+            {formData.assetType === "peripheral" && (
+              <>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="peripheralType"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Peripheral Type *
+                  </Label>
+                  <Select
+                    value={formData.peripheralType}
+                    onValueChange={(value) =>
+                      handleInputChange("peripheralType", value)
+                    }
+                  >
+                    <SelectTrigger className="border-input focus:border-ring bg-background">
+                      <SelectValue placeholder="Select peripheral type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover border-border">
+                      {peripheralTypes.map((type) => (
+                        <SelectItem
+                          key={type.value}
+                          value={type.value}
+                          className="hover:bg-accent"
+                        >
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.peripheralType !== "monitor" && (
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="itemName"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Item Name *
+                    </Label>
+                    <Input
+                      id="itemName"
+                      value={formData.itemName || ""}
+                      onChange={(e) =>
+                        handleInputChange("itemName", e.target.value)
+                      }
+                      placeholder="Enter item name"
+                      className="border-input focus:border-ring bg-background"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
+            {(formData.assetType === "router" ||
+              formData.assetType === "switch") && (
+              <div className="space-y-2">
+                <Label
+                  htmlFor="networkType"
+                  className="text-sm font-medium text-foreground"
+                >
+                  Network Device Type *
+                </Label>
+                <Select
+                  value={formData.networkType}
+                  onValueChange={(value) =>
+                    handleInputChange("networkType", value)
+                  }
+                >
+                  <SelectTrigger className="border-input focus:border-ring bg-background">
+                    <SelectValue placeholder="Select network device type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    {networkTypes.map((type) => (
+                      <SelectItem
+                        key={type.value}
+                        value={type.value}
+                        className="hover:bg-accent"
+                      >
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {formData.assetType === "server" && (
+              <>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="hostname"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Hostname / Server Name *
+                  </Label>
+                  <Input
+                    id="hostname"
+                    value={formData.hostname || ""}
+                    onChange={(e) =>
+                      handleInputChange("hostname", e.target.value)
+                    }
+                    placeholder="Enter hostname"
+                    className="border-input focus:border-ring bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="serverRole"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Server Role / Function
+                  </Label>
+                  <Select
+                    value={formData.serverRole}
+                    onValueChange={(value) =>
+                      handleInputChange("serverRole", value)
+                    }
+                  >
+                    <SelectTrigger className="border-input focus:border-ring bg-background">
+                      <SelectValue placeholder="Select server role" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover border-border">
+                      {serverRoles.map((role) => (
+                        <SelectItem
+                          key={role.value}
+                          value={role.value}
+                          className="hover:bg-accent"
+                        >
+                          {role.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Monitor specific fields */}
+          {formData.assetType === "peripheral" &&
+            formData.peripheralType === "monitor" && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                  Monitor Specifications
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="screenSize"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Screen Size (inches)
+                    </Label>
+                    <Input
+                      id="screenSize"
+                      value={formData.screenSize || ""}
+                      onChange={(e) =>
+                        handleInputChange("screenSize", e.target.value)
+                      }
+                      placeholder="e.g., 24, 27, 32"
+                      className="border-input focus:border-ring bg-background"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="resolution"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Resolution
+                    </Label>
+                    <Input
+                      id="resolution"
+                      value={formData.resolution || ""}
+                      onChange={(e) =>
+                        handleInputChange("resolution", e.target.value)
+                      }
+                      placeholder="e.g., 1920x1080, 4K"
+                      className="border-input focus:border-ring bg-background"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="connectionType"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Connection Type
+                    </Label>
+                    <Select
+                      value={formData.connectionType}
+                      onValueChange={(value) =>
+                        handleInputChange("connectionType", value)
+                      }
+                    >
+                      <SelectTrigger className="border-input focus:border-ring bg-background">
+                        <SelectValue placeholder="Select connection type" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border">
+                        {connectionTypes.map((type) => (
+                          <SelectItem
+                            key={type.value}
+                            value={type.value}
+                            className="hover:bg-accent"
+                          >
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-foreground">
+                      Purchase Date
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
+                            !formData.purchaseDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.purchaseDate
+                            ? format(formData.purchaseDate, "PPP")
+                            : "Select date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-auto p-0 bg-popover border-border"
+                        align="start"
+                      >
+                        <Calendar
+                          mode="single"
+                          selected={formData.purchaseDate}
+                          onSelect={(date) =>
+                            handleDateChange("purchaseDate", date)
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          {/* Network Asset specific fields */}
+          {(formData.assetType === "router" ||
+            formData.assetType === "switch") &&
+            formData.networkType && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                  {formData.networkType === "router" ? "Router" : "Switch"}{" "}
+                  Configuration
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="firmwareVersion"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Firmware / OS Version
+                    </Label>
+                    <Input
+                      id="firmwareVersion"
+                      value={formData.firmwareVersion || ""}
+                      onChange={(e) =>
+                        handleInputChange("firmwareVersion", e.target.value)
+                      }
+                      placeholder="Enter firmware version"
+                      className="border-input focus:border-ring bg-background"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="ipAddress"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      IP Address (Management)
+                    </Label>
+                    <Input
+                      id="ipAddress"
+                      value={formData.ipAddress || ""}
+                      onChange={(e) =>
+                        handleInputChange("ipAddress", e.target.value)
+                      }
+                      placeholder="e.g., 192.168.1.1"
+                      className="border-input focus:border-ring bg-background"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="macAddress"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      MAC Address
+                    </Label>
+                    <Input
+                      id="macAddress"
+                      value={formData.macAddress || ""}
+                      onChange={(e) =>
+                        handleInputChange("macAddress", e.target.value)
+                      }
+                      placeholder="e.g., 00:1B:44:11:3A:B7"
+                      className="border-input focus:border-ring bg-background"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="numberOfPorts"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Number of Ports /{" "}
+                      {formData.networkType === "router"
+                        ? "Interfaces"
+                        : "Speed"}
+                    </Label>
+                    <Input
+                      id="numberOfPorts"
+                      value={formData.numberOfPorts || ""}
+                      onChange={(e) =>
+                        handleInputChange("numberOfPorts", e.target.value)
+                      }
+                      placeholder={
+                        formData.networkType === "router"
+                          ? "e.g., 4 LAN, 1 WAN"
+                          : "e.g., 24 ports 1Gbps"
+                      }
+                      className="border-input focus:border-ring bg-background"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="rackPosition"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Location / Rack Position
+                    </Label>
+                    <Input
+                      id="rackPosition"
+                      value={formData.rackPosition || ""}
+                      onChange={(e) =>
+                        handleInputChange("rackPosition", e.target.value)
+                      }
+                      placeholder="e.g., Rack 1, U5-U7"
+                      className="border-input focus:border-ring bg-background"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="configBackupLocation"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Configuration Backup Location
+                    </Label>
+                    <Input
+                      id="configBackupLocation"
+                      value={formData.configBackupLocation || ""}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "configBackupLocation",
+                          e.target.value
+                        )
+                      }
+                      placeholder="Enter backup location"
+                      className="border-input focus:border-ring bg-background"
+                    />
+                  </div>
+
+                  {formData.networkType === "router" && (
+                    <div className="space-y-2 md:col-span-2">
+                      <Label
+                        htmlFor="uplinkDownlinkInfo"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Uplink / Downlink Information
+                      </Label>
+                      <Textarea
+                        id="uplinkDownlinkInfo"
+                        value={formData.uplinkDownlinkInfo || ""}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "uplinkDownlinkInfo",
+                            e.target.value
+                          )
+                        }
+                        placeholder="Enter uplink/downlink details"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+                  )}
+
+                  {formData.networkType === "switch" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="poeSupport"
+                          className="text-sm font-medium text-foreground"
+                        >
+                          PoE Support
+                        </Label>
+                        <Input
+                          id="poeSupport"
+                          value={formData.poeSupport || ""}
+                          onChange={(e) =>
+                            handleInputChange("poeSupport", e.target.value)
+                          }
+                          placeholder="e.g., Yes - 370W budget"
+                          className="border-input focus:border-ring bg-background"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="stackClusterMembership"
+                          className="text-sm font-medium text-foreground"
+                        >
+                          Stack/Cluster Membership
+                        </Label>
+                        <Input
+                          id="stackClusterMembership"
+                          value={formData.stackClusterMembership || ""}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "stackClusterMembership",
+                              e.target.value
+                            )
+                          }
+                          placeholder="e.g., Stack ID 1, Member 2"
+                          className="border-input focus:border-ring bg-background"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+          {/* Server specific fields */}
+          {formData.assetType === "server" && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                Server Configuration
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="processor"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Processor (CPU) *
+                  </Label>
+                  <Input
+                    id="processor"
+                    value={formData.processor || ""}
+                    onChange={(e) =>
+                      handleInputChange("processor", e.target.value)
+                    }
+                    placeholder="e.g., Intel Xeon E5-2690 v4 (14 cores, 2.6GHz)"
+                    className="border-input focus:border-ring bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="ramSize"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    RAM Size & Configuration *
+                  </Label>
+                  <Input
+                    id="ramSize"
+                    value={formData.ramSize || ""}
+                    onChange={(e) =>
+                      handleInputChange("ramSize", e.target.value)
+                    }
+                    placeholder="e.g., 64GB (4x16GB DDR4)"
+                    className="border-input focus:border-ring bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="storage"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Storage Configuration
+                  </Label>
+                  <Input
+                    id="storage"
+                    value={formData.storage || ""}
+                    onChange={(e) =>
+                      handleInputChange("storage", e.target.value)
+                    }
+                    placeholder="e.g., 2x500GB SSD RAID 1"
+                    className="border-input focus:border-ring bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="operatingSystem"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Operating System / Version
+                  </Label>
+                  <Input
+                    id="operatingSystem"
+                    value={formData.operatingSystem || ""}
+                    onChange={(e) =>
+                      handleInputChange("operatingSystem", e.target.value)
+                    }
+                    placeholder="e.g., Windows Server 2022, Ubuntu 22.04"
+                    className="border-input focus:border-ring bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="productionIpAddress"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Production IP Address(es)
+                  </Label>
+                  <Input
+                    id="productionIpAddress"
+                    value={formData.productionIpAddress || ""}
+                    onChange={(e) =>
+                      handleInputChange("productionIpAddress", e.target.value)
+                    }
+                    placeholder="e.g., 10.1.1.50, 192.168.1.100"
+                    className="border-input focus:border-ring bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="managementMacAddress"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    MAC Address(es)
+                  </Label>
+                  <Input
+                    id="managementMacAddress"
+                    value={formData.managementMacAddress || ""}
+                    onChange={(e) =>
+                      handleInputChange("managementMacAddress", e.target.value)
+                    }
+                    placeholder="Primary NIC MAC address"
+                    className="border-input focus:border-ring bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="powerSupply"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Power Supply Configuration
+                  </Label>
+                  <Input
+                    id="powerSupply"
+                    value={formData.powerSupply || ""}
+                    onChange={(e) =>
+                      handleInputChange("powerSupply", e.target.value)
+                    }
+                    placeholder="e.g., Dual 750W redundant"
+                    className="border-input focus:border-ring bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label
+                    htmlFor="installedApplications"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Installed Applications / Services
+                  </Label>
+                  <Textarea
+                    id="installedApplications"
+                    value={formData.installedApplications || ""}
+                    onChange={(e) =>
+                      handleInputChange("installedApplications", e.target.value)
+                    }
+                    placeholder="List key applications and services running on this server"
+                    className="border-input focus:border-ring bg-background"
+                  />
                 </div>
               </div>
             </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-h-[70vh] overflow-y-auto p-1">
+
+          {/* Device Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="assetTag">Asset Tag *</Label>
-              <Input
-                id="assetTag"
-                name="assetTag"
-                value={formData.assetTag}
-                onChange={handleChange}
-                className={errors.assetTag ? "border-red-500" : ""}
-              />
-              {errors.assetTag && (
-                <p className="text-red-500 text-xs mt-1">{errors.assetTag}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="serialNumber">Serial Number *</Label>
-              <Input
-                id="serialNumber"
-                name="serialNumber"
-                value={formData.serialNumber}
-                onChange={handleChange}
-                className={errors.serialNumber ? "border-red-500" : ""}
-              />
-              {errors.serialNumber && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.serialNumber}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="type">Asset Type *</Label>
-              <Select name="type" value={formData.type} onValueChange={(value) => handleSelectChange("type", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an asset type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {assetTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {formData.type === "peripheral" && (
-              <div className="space-y-2">
-                <Label htmlFor="peripheralType">Peripheral Type *</Label>
-                <Select name="peripheralType" value={formData.peripheralType} onValueChange={(value) => handleSelectChange("peripheralType", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a peripheral type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {peripheralTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {formData.type === "compute" && (
-              <div className="space-y-2">
-                <Label htmlFor="computeType">Compute Type *</Label>
-                <Select name="computeType" value={formData.computeType} onValueChange={(value) => handleSelectChange("computeType", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a compute type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {computeTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Status *</Label>
-              <Select name="status" value={formData.status} onValueChange={(value) => handleSelectChange("status", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {assetStatuses.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status.replace("-", " ").toUpperCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="brand">Brand / Manufacturer *</Label>
+              <Label
+                htmlFor="brand"
+                className="text-sm font-medium text-foreground"
+              >
+                Brand / Manufacturer
+              </Label>
               <Input
                 id="brand"
-                name="brand"
                 value={formData.brand}
-                onChange={handleChange}
-                className={errors.brand ? "border-red-500" : ""}
+                onChange={(e) => handleInputChange("brand", e.target.value)}
+                placeholder="Enter brand/manufacturer"
+                className="border-input focus:border-ring bg-background"
               />
-              {errors.brand && (
-                <p className="text-red-500 text-xs mt-1">{errors.brand}</p>
-              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="model">Model *</Label>
+              <Label
+                htmlFor="model"
+                className="text-sm font-medium text-foreground"
+              >
+                Model
+              </Label>
               <Input
                 id="model"
-                name="model"
                 value={formData.model}
-                onChange={handleChange}
-                className={errors.model ? "border-red-500" : ""}
+                onChange={(e) => handleInputChange("model", e.target.value)}
+                placeholder="Enter model"
+                className="border-input focus:border-ring bg-background"
               />
-              {errors.model && (
-                <p className="text-red-500 text-xs mt-1">{errors.model}</p>
-              )}
             </div>
 
-            {formData.type === "compute" && (
+            {/* Hide dates for peripherals, show for other asset types */}
+            {formData.assetType !== "peripherals" && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="deployedDate">Deployed Date *</Label>
-                  <div className="relative">
-                    <Input
-                      id="deployedDate"
-                      type="date"
-                      name="deployedDate"
-                      value={formData.deployedDate}
-                      onChange={handleChange}
-                      className={errors.deployedDate ? "border-red-500" : ""}
-                    />
-                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                  {errors.deployedDate && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {errors.deployedDate}
-                    </p>
-                  )}
+                  <Label className="text-sm font-medium text-foreground">
+                    Deployed Date
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
+                          !formData.deployedDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.deployedDate
+                          ? format(formData.deployedDate, "PPP")
+                          : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-auto p-0 bg-popover border-border"
+                      align="start"
+                    >
+                      <Calendar
+                        mode="single"
+                        selected={formData.deployedDate}
+                        onSelect={(date) =>
+                          handleDateChange("deployedDate", date)
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="warrantyExpiry">Warranty Expiry *</Label>
-                  <div className="relative">
-                    <Input
-                      id="warrantyExpiry"
-                      type="date"
-                      name="warrantyExpiry"
-                      value={formData.warrantyExpiry}
-                      onChange={handleChange}
-                      className={errors.warrantyExpiry ? "border-red-500" : ""}
-                    />
-                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                  {errors.warrantyExpiry && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {errors.warrantyExpiry}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="vendor">Vendor *</Label>
-                  <Input
-                    id="vendor"
-                    name="vendor"
-                    value={formData.vendor}
-                    onChange={handleChange}
-                    className={errors.vendor ? "border-red-500" : ""}
-                  />
-                  {errors.vendor && (
-                    <p className="text-red-500 text-xs mt-1">{errors.vendor}</p>
-                  )}
+                  <Label className="text-sm font-medium text-foreground">
+                    Warranty Expiration
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
+                          !formData.warrantyExpiration &&
+                            "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.warrantyExpiration
+                          ? format(formData.warrantyExpiration, "PPP")
+                          : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-auto p-0 bg-popover border-border"
+                      align="start"
+                    >
+                      <Calendar
+                        mode="single"
+                        selected={formData.warrantyExpiration}
+                        onSelect={(date) =>
+                          handleDateChange("warrantyExpiration", date)
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </>
             )}
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="assignedUser">Assigned User</Label>
-              <Input
-                id="assignedUser"
-                name="assignedUser"
-                value={formData.assignedUser}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="department">Department *</Label>
-              <Input
-                id="department"
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
-                className={errors.department ? "border-red-500" : ""}
-              />
-              {errors.department && (
-                <p className="text-red-500 text-xs mt-1">{errors.department}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="location">Location *</Label>
-              <Input
-                id="location"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                className={errors.location ? "border-red-500" : ""}
-              />
-              {errors.location && (
-                <p className="text-red-500 text-xs mt-1">{errors.location}</p>
-              )}
-            </div>
-
-            {formData.type === "peripheral" && (
+          {/* Assignment Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Hide vendor for peripherals */}
+            {formData.assetType !== "peripherals" && (
               <div className="space-y-2">
-                <Label htmlFor="itemName">Item Name</Label>
+                <Label
+                  htmlFor="vendor"
+                  className="text-sm font-medium text-foreground"
+                >
+                  Vendor
+                </Label>
                 <Input
-                  id="itemName"
-                  name="itemName"
-                  value={formData.itemName}
-                  onChange={handleChange}
-                  className={errors.itemName ? "border-red-500" : ""}
+                  id="vendor"
+                  value={formData.vendor}
+                  onChange={(e) => handleInputChange("vendor", e.target.value)}
+                  placeholder="Enter vendor"
+                  className="border-input focus:border-ring bg-background"
                 />
-                {errors.itemName && (
-                  <p className="text-red-500 text-xs mt-1">{errors.itemName}</p>
-                )}
               </div>
             )}
 
-            <div className="md:col-span-3 space-y-2">
-              <Label htmlFor="specifications">Specifications</Label>
-              <Textarea
-                id="specifications"
-                name="specifications"
-                value={formData.specifications}
-                onChange={handleChange}
-                rows={2}
+            <div className="space-y-2">
+              <Label
+                htmlFor="assignedUser"
+                className="text-sm font-medium text-foreground"
+              >
+                Assigned User
+              </Label>
+              <Input
+                id="assignedUser"
+                value={formData.assignedUser}
+                onChange={(e) =>
+                  handleInputChange("assignedUser", e.target.value)
+                }
+                placeholder="Enter assigned user"
+                className="border-input focus:border-ring bg-background"
               />
             </div>
 
-            <div className="md:col-span-3 space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                rows={3}
+            <div className="space-y-2">
+              <Label
+                htmlFor="department"
+                className="text-sm font-medium text-foreground"
+              >
+                Department
+              </Label>
+              <Input
+                id="department"
+                value={formData.department}
+                onChange={(e) =>
+                  handleInputChange("department", e.target.value)
+                }
+                placeholder="Enter department"
+                className="border-input focus:border-ring bg-background"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="location"
+                className="text-sm font-medium text-foreground"
+              >
+                Location
+              </Label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) => handleInputChange("location", e.target.value)}
+                placeholder="Enter location"
+                className="border-input focus:border-ring bg-background"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+
+          {/* Additional Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label
+                htmlFor="specifications"
+                className="text-sm font-medium text-foreground"
+              >
+                Specifications
+              </Label>
+              <Textarea
+                id="specifications"
+                value={formData.specifications}
+                onChange={(e) =>
+                  handleInputChange("specifications", e.target.value)
+                }
+                placeholder="Enter technical specifications"
+                className="border-input focus:border-ring bg-background min-h-[120px]"
+                rows={5}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="description"
+                className="text-sm font-medium text-foreground"
+              >
+                Description
+              </Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) =>
+                  handleInputChange("description", e.target.value)
+                }
+                placeholder="Enter description"
+                className="border-input focus:border-ring bg-background min-h-[120px]"
+                rows={5}
+              />
+            </div>
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex items-center justify-end space-x-4 pt-6 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancel}
+              className="border-border hover:bg-accent/50"
+            >
+              <X className="w-4 h-4 mr-2" />
               Cancel
             </Button>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? (
-                <svg
-                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              ) : asset ? (
-                "Update Asset"
-              ) : (
-                "Add Asset"
-              )}
+            <Button
+              type="submit"
+              className="bg-primary hover:bg-primary/90 shadow-lg transition-all duration-200"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {isRedeploying ? "Redeploy" : "Save Asset"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
   );
-};
+}
 
-export default AssetModal;
+export default AssetFormModal;

@@ -22,11 +22,21 @@ import ReceivableModal from "./components/ReceivableModal";
 import LicenseModal from "./components/LicenseModal";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
-import { BarChart3, Table, Package, Key, LogOut, History, ArchiveRestore } from "lucide-react";
+import {
+  BarChart3,
+  Table,
+  Package,
+  Key,
+  LogOut,
+  History,
+  ArchiveRestore,
+} from "lucide-react";
 import { ToastProvider, useToast } from "./contexts/ToastContext";
 import AuditTrail from "./components/AuditTrail";
 import ConfirmationDialog from "./components/ConfirmationDialog";
+import RetrieveReasonDialog from "./components/RetrieveReasonDialog";
 import { useStore } from "./store/store";
+import buaLogo from "./assets/bua-logo.jpg";
 
 function AppContent() {
   const { currentUser, logout } = useAuth();
@@ -83,17 +93,35 @@ function AppContent() {
     }
   };
 
-  const handleRetrieveAsset = async (asset: Asset) => {
+  const handleRetrieveAsset = (asset: Asset) => {
+    setRetrieveReasonDialog({ isOpen: true, asset });
+  };
+
+  const handleRetrieveConfirm = async (reason: "spare" | "repair") => {
+    if (!retrieveReasonDialog.asset) return;
+
     try {
       const retrieved = {
-        ...asset,
-        retrievedDate: new Date().toISOString().split('T')[0],
-        retrievedBy: currentUser?.email || 'Unknown User',
-      } as unknown;
-      await retrieveAsset(asset.id, retrieved, currentUser?.email || 'Unknown User');
-      showToast("Asset moved to Retrieved", "success");
+        ...retrieveReasonDialog.asset,
+        status: reason,
+        retrievedDate: new Date().toISOString().split("T")[0],
+        retrievedBy: currentUser?.email || "Unknown User",
+      };
+      await retrieveAsset(
+        retrieveReasonDialog.asset.id,
+        retrieved,
+        currentUser?.email || "Unknown User"
+      );
+      showToast(
+        `Asset moved to Retrieved with status: ${
+          reason === "repair" ? "out for repair" : reason
+        }`,
+        "success"
+      );
     } catch {
       showToast("Error retrieving asset", "error");
+    } finally {
+      setRetrieveReasonDialog({ isOpen: false, asset: null });
     }
   };
 
@@ -101,11 +129,17 @@ function AppContent() {
     setRedeployConfirmation(asset);
   };
   const [currentView, setCurrentView] = useState<
-    "dashboard" | "inventory" | "receivables" | "licenses" | "retrieved" | "audit"
+    | "dashboard"
+    | "inventory"
+    | "receivables"
+    | "licenses"
+    | "retrieved"
+    | "audit"
   >("dashboard");
 
   // Modal states
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isRedeploying, setIsRedeploying] = useState(false);
   const [isReceivableModalOpen, setIsReceivableModalOpen] = useState(false);
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | undefined>();
@@ -113,12 +147,18 @@ function AppContent() {
     Receivable | undefined
   >();
   const [editingLicense, setEditingLicense] = useState<License | undefined>();
-  const [deleteConfirmation, setDeleteConfirmation] = useState<{ 
-    isOpen: boolean; 
-    id: string; 
-    type: 'asset' | 'receivable' | 'license'; 
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    id: string;
+    type: "asset" | "receivable" | "license";
+    assetTag?: string;
   } | null>(null);
-  const [redeployConfirmation, setRedeployConfirmation] = useState<Asset | null>(null);
+  const [redeployConfirmation, setRedeployConfirmation] =
+    useState<Asset | null>(null);
+  const [retrieveReasonDialog, setRetrieveReasonDialog] = useState<{
+    isOpen: boolean;
+    asset: Asset | null;
+  }>({ isOpen: false, asset: null });
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -210,35 +250,54 @@ function AppContent() {
   // Asset handlers
   const handleAddAsset = () => {
     setEditingAsset(undefined);
+    setIsRedeploying(false);
     setIsAssetModalOpen(true);
   };
 
   const handleEditAsset = (asset: Asset) => {
     setEditingAsset(asset);
+    setIsRedeploying(false);
     setIsAssetModalOpen(true);
   };
 
   const handleDeleteAsset = (id: string) => {
-    setDeleteConfirmation({ isOpen: true, id, type: 'asset' });
+    const asset = assets.find((a) => a.id === id);
+    setDeleteConfirmation({
+      isOpen: true,
+      id,
+      type: "asset",
+      assetTag: asset?.assetTag,
+    });
   };
 
   const handleSaveAsset = async (assetData: Omit<Asset, "id">) => {
     try {
       if (editingAsset) {
-        // If editing asset that exists in retrieved view, add new asset and remove retrieved
-        const isRedeploying = currentView === 'retrieved' || (retrievedAssets.find(a => a.id === editingAsset?.id) ? true : false);
+        // Use the isRedeploying state to determine if this is a redeploy operation
         if (isRedeploying) {
           await addAsset(assetData, currentUser?.email || "Unknown User");
-          await useStore.getState().removeRetrieved(editingAsset.id, currentUser?.email || "Unknown User");
+          await useStore
+            .getState()
+            .removeRetrieved(
+              editingAsset.id,
+              currentUser?.email || "Unknown User"
+            );
           showToast("Asset redeployed to Inventory", "success");
         } else {
-          await updateAsset(editingAsset.id, assetData, currentUser?.email || "Unknown User");
+          await updateAsset(
+            editingAsset.id,
+            assetData,
+            currentUser?.email || "Unknown User"
+          );
           showToast("Asset updated successfully", "success");
         }
       } else {
         await addAsset(assetData, currentUser?.email || "Unknown User");
         showToast("Asset added successfully", "success");
       }
+
+      // Reset redeploying state after successful save
+      setIsRedeploying(false);
     } catch (error) {
       console.error("Error saving asset:", error);
       showToast("Error saving asset", "error");
@@ -257,7 +316,7 @@ function AppContent() {
   };
 
   const handleDeleteReceivable = (id: string) => {
-    setDeleteConfirmation({ isOpen: true, id, type: 'receivable' });
+    setDeleteConfirmation({ isOpen: true, id, type: "receivable" });
   };
 
   const handleSaveReceivable = async (
@@ -265,10 +324,17 @@ function AppContent() {
   ) => {
     try {
       if (editingReceivable) {
-        await updateReceivable(editingReceivable.id, receivableData, currentUser?.email || "Unknown User");
+        await updateReceivable(
+          editingReceivable.id,
+          receivableData,
+          currentUser?.email || "Unknown User"
+        );
         showToast("Receivable updated successfully", "success");
       } else {
-        await addReceivable(receivableData, currentUser?.email || "Unknown User");
+        await addReceivable(
+          receivableData,
+          currentUser?.email || "Unknown User"
+        );
         showToast("Receivable added successfully", "success");
       }
     } catch {
@@ -287,7 +353,7 @@ function AppContent() {
           brand: receivable.brand,
           model: receivable.itemName,
           specifications: receivable.description,
-          purchaseDate: receivable.purchaseDate,
+          deployedDate: new Date().toISOString().split("T")[0],
           warrantyExpiry: new Date(
             new Date(receivable.purchaseDate).getTime() +
               365 * 24 * 60 * 60 * 1000 * 3
@@ -304,7 +370,11 @@ function AppContent() {
         await addAsset(newAssetData, currentUser?.email || "Unknown User");
 
         // Update receivable status to deployed
-        await updateReceivable(receivable.id, { status: "deployed" }, currentUser?.email || "Unknown User");
+        await updateReceivable(
+          receivable.id,
+          { status: "deployed" },
+          currentUser?.email || "Unknown User"
+        );
         showToast("Receivable deployed successfully", "success");
       } catch {
         showToast("Error deploying receivable", "error");
@@ -324,13 +394,17 @@ function AppContent() {
   };
 
   const handleDeleteLicense = (id: string) => {
-    setDeleteConfirmation({ isOpen: true, id, type: 'license' });
+    setDeleteConfirmation({ isOpen: true, id, type: "license" });
   };
 
   const handleSaveLicense = async (licenseData: Omit<License, "id">) => {
     try {
       if (editingLicense) {
-        await updateLicense(editingLicense.id, licenseData, currentUser?.email || "Unknown User");
+        await updateLicense(
+          editingLicense.id,
+          licenseData,
+          currentUser?.email || "Unknown User"
+        );
         showToast("License updated successfully", "success");
       } else {
         await addLicense(licenseData, currentUser?.email || "Unknown User");
@@ -345,13 +419,13 @@ function AppContent() {
     if (deleteConfirmation) {
       const { id, type } = deleteConfirmation;
       try {
-        if (type === 'asset') {
+        if (type === "asset") {
           await deleteAsset(id, currentUser?.email || "Unknown User");
           showToast("Asset deleted successfully", "success");
-        } else if (type === 'receivable') {
+        } else if (type === "receivable") {
           await deleteReceivable(id, currentUser?.email || "Unknown User");
           showToast("Receivable deleted successfully", "success");
-        } else if (type === 'license') {
+        } else if (type === "license") {
           await deleteLicense(id, currentUser?.email || "Unknown User");
           showToast("License deleted successfully", "success");
         }
@@ -396,23 +470,28 @@ function AppContent() {
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-100">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b">
+        <header className="bg-bua-red shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
-              <div className="flex items-center">
-                <h1 className="text-2xl font-bold text-gray-900">
+              <div className="flex items-center gap-3">
+                <img
+                  src={buaLogo}
+                  alt="BUA Logo"
+                  className="h-10 w-auto object-contain"
+                />
+                <h1 className="text-2xl font-bold text-white">
                   IT Asset Management System
                 </h1>
               </div>
 
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-bua-gold">
                     {currentUser?.email}
                   </span>
                   <button
                     onClick={handleLogout}
-                    className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors duration-150"
+                    className="flex items-center px-3 py-2 text-sm font-medium text-bua-red bg-bua-gold rounded-md hover:bg-yellow-300 transition-colors duration-150"
                     title="Logout"
                   >
                     <LogOut className="w-4 h-4 mr-1" />
@@ -432,8 +511,8 @@ function AppContent() {
                 onClick={() => setCurrentView("dashboard")}
                 className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
                   currentView === "dashboard"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-bua-red text-bua-red"
+                    : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
                 }`}
               >
                 <BarChart3 className="w-4 h-4 mr-2" />
@@ -443,8 +522,8 @@ function AppContent() {
                 onClick={() => setCurrentView("inventory")}
                 className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
                   currentView === "inventory"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-bua-red text-bua-red"
+                    : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
                 }`}
               >
                 <Table className="w-4 h-4 mr-2" />
@@ -454,8 +533,8 @@ function AppContent() {
                 onClick={() => setCurrentView("receivables")}
                 className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
                   currentView === "receivables"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-bua-red text-bua-red"
+                    : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
                 }`}
               >
                 <Package className="w-4 h-4 mr-2" />
@@ -465,8 +544,8 @@ function AppContent() {
                 onClick={() => setCurrentView("licenses")}
                 className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
                   currentView === "licenses"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-bua-red text-bua-red"
+                    : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
                 }`}
               >
                 <Key className="w-4 h-4 mr-2" />
@@ -476,8 +555,8 @@ function AppContent() {
                 onClick={() => setCurrentView("retrieved")}
                 className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
                   currentView === "retrieved"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-bua-red text-bua-red"
+                    : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
                 }`}
               >
                 <ArchiveRestore className="w-4 h-4 mr-2" />
@@ -488,8 +567,8 @@ function AppContent() {
                   onClick={() => setCurrentView("audit")}
                   className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
                     currentView === "audit"
-                      ? "border-blue-500 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                      ? "border-bua-red text-bua-red"
+                      : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
                   }`}
                 >
                   <History className="w-4 h-4 mr-2" />
@@ -507,7 +586,6 @@ function AppContent() {
               assets={assets}
               receivables={receivables}
               licenses={licenses}
-              onImport={handleImport}
               onAssetAdded={fetchAllData}
               onLicenseAdded={fetchAllData}
               onReceivableAdded={fetchAllData}
@@ -575,9 +653,12 @@ function AppContent() {
         {/* Modals */}
         <AssetModal
           isOpen={isAssetModalOpen}
-          onClose={() => setIsAssetModalOpen(false)}
+          onClose={() => {
+            setIsAssetModalOpen(false);
+          }}
           onSave={handleSaveAsset}
           asset={editingAsset}
+          isRedeploying={isRedeploying}
         />
 
         <ReceivableModal
@@ -600,7 +681,10 @@ function AppContent() {
             onClose={() => setDeleteConfirmation(null)}
             onConfirm={handleConfirmDelete}
             title="Are you sure?"
-            description={`This action cannot be undone. This will permanently delete the ${deleteConfirmation.type}.`}
+            message={`This action cannot be undone. This will permanently delete the ${deleteConfirmation.type}.`}
+            requireAssetTag={deleteConfirmation.type === "asset"}
+            assetTag={deleteConfirmation.assetTag}
+            confirmText="Delete"
           />
         )}
         {redeployConfirmation && (
@@ -609,14 +693,24 @@ function AppContent() {
             onClose={() => setRedeployConfirmation(null)}
             onConfirm={async () => {
               setEditingAsset({ ...redeployConfirmation! });
+              setIsRedeploying(true);
               setIsAssetModalOpen(true);
               setRedeployConfirmation(null);
             }}
             title="Redeploy asset?"
-            description={`This will open the asset details for editing before redeploying ${redeployConfirmation.assetTag} back to Inventory.`}
-            confirmLabel="Redeploy"
+            message={`This will open the asset details for editing before redeploying ${redeployConfirmation.assetTag} back to Inventory.`}
+            confirmText="Redeploy"
           />
         )}
+
+        <RetrieveReasonDialog
+          isOpen={retrieveReasonDialog.isOpen}
+          onClose={() =>
+            setRetrieveReasonDialog({ isOpen: false, asset: null })
+          }
+          onConfirm={handleRetrieveConfirm}
+          assetTag={retrieveReasonDialog.asset?.assetTag || ""}
+        />
       </div>
     </ProtectedRoute>
   );

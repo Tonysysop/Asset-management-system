@@ -86,14 +86,14 @@ export default function LoginForm() {
               <Button
                 type="button"
                 onClick={() => setRole("admin")}
-                className={`h-9 px-3 ${role === "admin" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                className={`h-9 px-3 ${role === "admin" ? "bg-bua-red text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
               >
                 Admin
               </Button>
               <Button
                 type="button"
                 onClick={() => setRole("auditor")}
-                className={`h-9 px-3 ${role === "auditor" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                className={`h-9 px-3 ${role === "auditor" ? "bg-bua-red text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
               >
                 Auditor
               </Button>
@@ -112,7 +112,7 @@ export default function LoginForm() {
                 placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="pl-10 h-11 transition-smooth focus:outline-none focus:ring-2 focus:ring-[#E30613] focus:border-[#E30613]"
+                className="pl-10 h-11 transition-smooth focus:outline-none focus:ring-2 focus:ring-[#C41E3A] focus:border-[#C41E3A]"
                 required
               />
             </div>
@@ -130,7 +130,7 @@ export default function LoginForm() {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="pl-10 h-11 transition-smooth focus:outline-none focus:ring-2 focus:ring-[#E30613] focus:border-[#E30613]"
+                className="pl-10 h-11 transition-smooth focus:outline-none focus:ring-2 focus:ring-[#C41E3A] focus:border-[#C41E3A]"
                 required
               />
             </div>
@@ -161,7 +161,7 @@ export default function LoginForm() {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full h-11 bg-[#E30613] text-white font-medium disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#E30613] transition-colors transition-transform duration-150 active:scale-95 hover:bg-[#c50510]"
+            className="w-full h-11 bg-[#C41E3A] text-white font-medium disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#C41E3A] transition-colors transition-transform duration-150 active:scale-95 hover:bg-[#A01729]"
           >
             {isLoading ? "Signing in..." : "Sign in"}
           </Button>
