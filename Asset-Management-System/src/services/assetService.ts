@@ -19,9 +19,52 @@ const retrievedCollection = collection(db, "retrieved_assets");
 
 export const getAssets = async (): Promise<Asset[]> => {
   const snapshot = await getDocs(assetsCollection);
-  return snapshot.docs.map(
-    (doc) => ({ ...doc.data(), id: doc.id } as Asset)
-  );
+  return snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset));
+};
+
+export const generateAssetTag = async (
+  assetType: string,
+  deployedDate?: Date
+): Promise<string> => {
+  const existingAssets = await getAssets();
+  const year = deployedDate
+    ? deployedDate.getFullYear()
+    : new Date().getFullYear();
+
+  // Map asset types to abbreviations
+  const typeAbbreviations: { [key: string]: string } = {
+    laptop: "LAP",
+    desktop: "DES",
+    server: "SRV",
+    monitor: "MON",
+    printer: "PRI",
+    phone: "PHO",
+    tablet: "TAB",
+    network: "NET",
+    scanner: "SCA",
+    mobile: "MOB",
+    router: "ROU",
+    switch: "SWI",
+  };
+
+  const abbreviation = typeAbbreviations[assetType.toLowerCase()] || "ASS";
+
+  // Filter assets by type and year
+  const sameTypeAssets = existingAssets.filter((asset) => {
+    const assetYear = asset.deployedDate
+      ? new Date(asset.deployedDate).getFullYear()
+      : new Date().getFullYear();
+    return (
+      asset.type.toLowerCase() === assetType.toLowerCase() && assetYear === year
+    );
+  });
+
+  // Get the next sequence number
+  const nextSequence = sameTypeAssets.length + 1;
+
+  return `BUA-${abbreviation}-${year}-${nextSequence
+    .toString()
+    .padStart(4, "0")}`;
 };
 
 export const getRetrievedAssets = async (): Promise<RetrievedAsset[]> => {
@@ -32,7 +75,10 @@ export const getRetrievedAssets = async (): Promise<RetrievedAsset[]> => {
 };
 
 export const addAsset = async (assetData: Omit<Asset, "id">, user: string) => {
-  const q = query(assetsCollection, where("assetTag", "==", assetData.assetTag));
+  const q = query(
+    assetsCollection,
+    where("assetTag", "==", assetData.assetTag)
+  );
   const snapshot = await getDocs(q);
   if (!snapshot.empty) {
     throw new Error(`Asset with tag ${assetData.assetTag} already exists.`);
@@ -50,36 +96,92 @@ export const addAsset = async (assetData: Omit<Asset, "id">, user: string) => {
   return { ...assetData, id: docRef.id };
 };
 
-export const addAssets = async (assetsData: Omit<Asset, "id">[], user: string): Promise<string[]> => {
+export const addAssets = async (
+  assetsData: Omit<Asset, "id">[],
+  user: string
+): Promise<string[]> => {
   const existingAssets = await getAssets();
-  const existingAssetTags = new Set(existingAssets.map(asset => asset.assetTag));
-  const batch = writeBatch(db);
+  const existingAssetTags = new Set(
+    existingAssets.map((asset) => asset.assetTag)
+  );
   const skippedAssetTags: string[] = [];
-  
+  const validAssets: Omit<Asset, "id">[] = [];
+
+  // Filter out duplicates and prepare valid assets
   assetsData.forEach((asset) => {
     if (existingAssetTags.has(asset.assetTag)) {
       skippedAssetTags.push(asset.assetTag);
       return;
     }
-    const docRef = doc(assetsCollection);
-    batch.set(docRef, asset);
+    validAssets.push(asset);
     existingAssetTags.add(asset.assetTag);
-    addAction({
-      user,
-      actionType: "CREATE",
-      itemType: "asset",
-      itemId: docRef.id,
-      assetTag: asset.assetTag,
-      timestamp: new Date(),
-      details: `Created asset with tag ${asset.assetTag}`,
-    });
   });
 
-  await batch.commit();
+  // Process in batches of 100 to avoid Firestore limits
+  const batchSize = 100;
+  for (let i = 0; i < validAssets.length; i += batchSize) {
+    const batch = writeBatch(db);
+    const batchAssets = validAssets.slice(i, i + batchSize);
+
+    const actionPromises: Promise<any>[] = [];
+
+    batchAssets.forEach((asset) => {
+      const docRef = doc(assetsCollection);
+
+      // Clean up undefined values before saving
+      const cleanAsset = {
+        ...asset,
+        deployedDate: asset.deployedDate || "",
+        warrantyExpiry: asset.warrantyExpiry || "",
+        assignedUser: asset.assignedUser || "",
+        department: asset.department || "",
+        location: asset.location || "",
+        notes: asset.notes || "",
+        specifications: asset.specifications || "",
+        brand: asset.brand || "",
+        model: asset.model || "",
+        vendor: asset.vendor || "",
+        serialNumber: asset.serialNumber || "",
+        status: asset.status || "in-use",
+        type: asset.type || "laptop",
+      };
+
+      batch.set(docRef, cleanAsset);
+      actionPromises.push(
+        addAction({
+          user,
+          actionType: "CREATE",
+          itemType: "asset",
+          itemId: docRef.id,
+          assetTag: asset.assetTag,
+          timestamp: new Date(),
+          details: `Created asset with tag ${asset.assetTag}`,
+        })
+      );
+    });
+
+    try {
+      await batch.commit();
+      // Wait for all action logs to complete
+      await Promise.all(actionPromises);
+    } catch (error) {
+      console.error(`Error committing batch ${i / batchSize + 1}:`, error);
+      throw new Error(
+        `Failed to import assets in batch ${
+          i / batchSize + 1
+        }. Please try again.`
+      );
+    }
+  }
+
   return skippedAssetTags;
 };
 
-export const updateAsset = async (id: string, assetData: Partial<Asset>, user: string) => {
+export const updateAsset = async (
+  id: string,
+  assetData: Partial<Asset>,
+  user: string
+) => {
   const assetDocRef = doc(db, "assets", id);
   const assetDoc = await getDoc(assetDocRef);
   const oldAssetData = assetDoc.data() as Asset;
@@ -104,7 +206,7 @@ export const updateAsset = async (id: string, assetData: Partial<Asset>, user: s
       itemId: id,
       assetTag: newAssetData.assetTag,
       timestamp: new Date(),
-      details: `Updated asset with id ${id}. Changes: ${changes.join(', ')}`,
+      details: `Updated asset with id ${id}. Changes: ${changes.join(", ")}`,
     });
   }
 };

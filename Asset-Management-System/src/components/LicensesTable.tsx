@@ -77,6 +77,10 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
     }
   };
 
+  const handleImportWrapper = (data: unknown[]) => {
+    handleFileImport(data as Omit<License, "id">[]);
+  };
+
   const licenseSampleData = `licenseName,vendor,licenseKey,licenseType,seats,purchaseDate,expiryDate,assignedUser,department,notes,status
 Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-01,Jane Smith,Marketing,Standard license,active`;
 
@@ -189,11 +193,12 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
           <Upload className="w-4 h-4 mr-2" />
           Import CSV
         </button>
+        ˆ
       </div>
       <ImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
-        onImport={handleFileImport}
+        onImport={handleImportWrapper}
         sampleData={licenseSampleData}
         instructions={licenseInstructions}
         expectedHeaders={expectedLicenseHeaders}

@@ -28,6 +28,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
 import type { Asset, AssetType, AssetStatus } from "@/types/inventory";
+import { generateAssetTag } from "@/services/assetService";
 
 interface AssetFormModalProps {
   isOpen: boolean;
@@ -38,7 +39,6 @@ interface AssetFormModalProps {
 }
 
 interface AssetFormData {
-  assetTag: string;
   serialNumber: string;
   assetType: string;
   computeType?: string;
@@ -62,7 +62,6 @@ interface AssetFormData {
   screenSize?: string;
   resolution?: string;
   connectionType?: string;
-  purchaseDate?: Date | undefined;
 
   // Network Asset specific fields
   firmwareVersion?: string;
@@ -89,7 +88,6 @@ interface AssetFormData {
 }
 
 const initialFormData: AssetFormData = {
-  assetTag: "",
   serialNumber: "",
   assetType: "",
   computeType: "",
@@ -113,7 +111,6 @@ const initialFormData: AssetFormData = {
   screenSize: "",
   resolution: "",
   connectionType: "",
-  purchaseDate: undefined,
 
   // Network Asset specific fields
   firmwareVersion: "",
@@ -141,10 +138,8 @@ const initialFormData: AssetFormData = {
 
 const assetTypes = [
   { value: "compute", label: "Compute" },
-  { value: "server", label: "Server" },
-  { value: "peripheral", label: "Peripherals" },
-  { value: "router", label: "Router" },
-  { value: "switch", label: "Switch" },
+  { value: "peripheral", label: "Peripheral" },
+  { value: "network", label: "Network Device" },
 ];
 
 const statusOptions = [
@@ -158,6 +153,7 @@ const computeTypes = [
   { value: "laptop", label: "Laptop" },
   { value: "desktop", label: "Desktop" },
   { value: "mobile", label: "Mobile" },
+  { value: "server", label: "Server" },
 ];
 
 const peripheralTypes = [
@@ -203,25 +199,52 @@ export function AssetFormModal({
   useEffect(() => {
     if (asset) {
       setFormData({
-        assetTag: asset.assetTag || "",
         serialNumber: asset.serialNumber || "",
-        assetType: asset.type || "",
+        assetType: asset.type
+          ? ["laptop", "desktop", "mobile", "server"].includes(asset.type)
+            ? "compute"
+            : ["printer", "scanner", "monitor"].includes(asset.type)
+            ? "peripheral"
+            : ["router", "switch"].includes(asset.type)
+            ? "network"
+            : asset.type
+          : "",
         computeType:
-          asset.computeType || (asset.type === "compute" ? "laptop" : ""),
+          asset.computeType ||
+          (asset.type === "laptop" ||
+          asset.type === "desktop" ||
+          asset.type === "mobile" ||
+          asset.type === "server"
+            ? asset.type
+            : ""),
         imeiNumber: "",
         peripheralType:
           asset.peripheralType ||
-          (asset.type === "peripheral" ? "printer" : ""),
-        networkType: "",
+          (asset.type === "printer" ||
+          asset.type === "scanner" ||
+          asset.type === "monitor"
+            ? asset.type
+            : ""),
+        networkType:
+          asset.networkType ||
+          (asset.type === "router" || asset.type === "switch"
+            ? asset.type
+            : ""),
         itemName: asset.itemName || "",
         status: asset.status || "",
         brand: asset.brand || "",
         model: asset.model || "",
         deployedDate: asset.deployedDate
-          ? new Date(asset.deployedDate)
+          ? (() => {
+              const date = new Date(asset.deployedDate);
+              return isNaN(date.getTime()) ? undefined : date;
+            })()
           : undefined,
         warrantyExpiration: asset.warrantyExpiry
-          ? new Date(asset.warrantyExpiry)
+          ? (() => {
+              const date = new Date(asset.warrantyExpiry);
+              return isNaN(date.getTime()) ? undefined : date;
+            })()
           : undefined,
         vendor: asset.vendor || "",
         assignedUser: asset.assignedUser || "",
@@ -233,7 +256,6 @@ export function AssetFormModal({
         screenSize: "",
         resolution: "",
         connectionType: "",
-        purchaseDate: undefined,
         // Network Asset specific fields
         firmwareVersion: "",
         ipAddress: "",
@@ -276,7 +298,6 @@ export function AssetFormModal({
         newData.screenSize = "";
         newData.resolution = "";
         newData.connectionType = "";
-        newData.purchaseDate = undefined;
         // Reset network fields
         newData.firmwareVersion = "";
         newData.ipAddress = "";
@@ -310,7 +331,6 @@ export function AssetFormModal({
         newData.screenSize = "";
         newData.resolution = "";
         newData.connectionType = "";
-        newData.purchaseDate = undefined;
       }
 
       // Reset network-specific fields when network type changes
@@ -326,7 +346,7 @@ export function AssetFormModal({
   };
 
   const handleDateChange = (
-    field: "deployedDate" | "warrantyExpiration" | "purchaseDate",
+    field: "deployedDate" | "warrantyExpiration",
     date: Date | undefined
   ) => {
     setFormData((prev) => ({
@@ -335,20 +355,15 @@ export function AssetFormModal({
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Basic validation
-    if (
-      !formData.assetTag ||
-      !formData.serialNumber ||
-      !formData.assetType ||
-      !formData.status
-    ) {
+    if (!formData.serialNumber || !formData.assetType || !formData.status) {
       toast({
         title: "Validation Error",
         description:
-          "Please fill in all required fields (Asset Tag, Serial Number, Asset Type, Status).",
+          "Please fill in all required fields (Serial Number, Asset Type, Status).",
         variant: "destructive",
       });
       return;
@@ -384,7 +399,17 @@ export function AssetFormModal({
       }
     }
 
-    if (formData.assetType === "server") {
+    if (formData.assetType === "network" && !formData.networkType) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a network device type.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Server validation (when compute type is server)
+    if (formData.computeType === "server") {
       if (!formData.hostname || !formData.processor || !formData.ramSize) {
         toast({
           title: "Validation Error",
@@ -396,11 +421,27 @@ export function AssetFormModal({
       }
     }
 
+    // Determine the specific asset type for tag generation and storage
+    let specificAssetType = formData.assetType;
+    if (formData.assetType === "compute" && formData.computeType) {
+      specificAssetType = formData.computeType;
+    } else if (formData.assetType === "peripheral" && formData.peripheralType) {
+      specificAssetType = formData.peripheralType;
+    } else if (formData.assetType === "network" && formData.networkType) {
+      specificAssetType = formData.networkType;
+    }
+
+    // Generate asset tag using the specific type
+    const generatedAssetTag = await generateAssetTag(
+      specificAssetType,
+      formData.deployedDate
+    );
+
     // Convert form data to Asset format and call onSave
     const assetData: Omit<Asset, "id"> = {
-      assetTag: formData.assetTag,
+      assetTag: generatedAssetTag,
       serialNumber: formData.serialNumber,
-      type: formData.assetType as AssetType,
+      type: specificAssetType as AssetType,
       brand: formData.brand,
       model: formData.model,
       specifications: formData.specifications,
@@ -434,8 +475,8 @@ export function AssetFormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-4xl max-w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto bg-card border-border shadow-lg">
-        <DialogHeader className="pb-6">
+      <DialogContent className="sm:max-w-4xl max-w-[calc(100%-2rem)] max-h-[90vh] bg-card border-border shadow-lg flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle className="text-2xl font-semibold text-card-foreground">
             {isRedeploying
               ? "Redeploy Asset"
@@ -452,175 +493,51 @@ export function AssetFormModal({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label
-                htmlFor="assetTag"
-                className="text-sm font-medium text-foreground"
-              >
-                Asset Tag *
-              </Label>
-              <Input
-                id="assetTag"
-                value={formData.assetTag}
-                onChange={(e) => handleInputChange("assetTag", e.target.value)}
-                placeholder="Enter asset tag"
-                className="border-input focus:border-ring bg-background"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="serialNumber"
-                className="text-sm font-medium text-foreground"
-              >
-                Serial Number *
-              </Label>
-              <Input
-                id="serialNumber"
-                value={formData.serialNumber}
-                onChange={(e) =>
-                  handleInputChange("serialNumber", e.target.value)
-                }
-                placeholder="Enter serial number"
-                className="border-input focus:border-ring bg-background"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="assetType"
-                className="text-sm font-medium text-foreground"
-              >
-                Asset Type *
-              </Label>
-              <Select
-                value={formData.assetType}
-                onValueChange={(value) => handleInputChange("assetType", value)}
-              >
-                <SelectTrigger className="border-input focus:border-ring bg-background">
-                  <SelectValue placeholder="Select asset type" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover border-border">
-                  {assetTypes.map((type) => (
-                    <SelectItem
-                      key={type.value}
-                      value={type.value}
-                      className="hover:bg-accent"
-                    >
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="status"
-                className="text-sm font-medium text-foreground"
-              >
-                Status *
-              </Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => handleInputChange("status", value)}
-              >
-                <SelectTrigger className="border-input focus:border-ring bg-background">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover border-border">
-                  {statusOptions.map((status) => (
-                    <SelectItem
-                      key={status.value}
-                      value={status.value}
-                      className="hover:bg-accent"
-                    >
-                      {status.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Dynamic fields based on asset type */}
-            {formData.assetType === "compute" && (
-              <div className="space-y-2">
-                <Label
-                  htmlFor="computeType"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Compute Type *
-                </Label>
-                <Select
-                  value={formData.computeType}
-                  onValueChange={(value) =>
-                    handleInputChange("computeType", value)
-                  }
-                >
-                  <SelectTrigger className="border-input focus:border-ring bg-background">
-                    <SelectValue placeholder="Select compute type" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    {computeTypes.map((type) => (
-                      <SelectItem
-                        key={type.value}
-                        value={type.value}
-                        className="hover:bg-accent"
-                      >
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {formData.assetType === "compute" &&
-              formData.computeType === "mobile" && (
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <form
+            onSubmit={handleSubmit}
+            className="flex flex-col flex-1 min-h-0"
+          >
+            <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-8">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label
-                    htmlFor="imeiNumber"
+                    htmlFor="serialNumber"
                     className="text-sm font-medium text-foreground"
                   >
-                    IMEI Number
+                    Serial Number *
                   </Label>
                   <Input
-                    id="imeiNumber"
-                    value={formData.imeiNumber || ""}
+                    id="serialNumber"
+                    value={formData.serialNumber}
                     onChange={(e) =>
-                      handleInputChange("imeiNumber", e.target.value)
+                      handleInputChange("serialNumber", e.target.value)
                     }
-                    placeholder="Enter IMEI number"
+                    placeholder="Enter serial number"
                     className="border-input focus:border-ring bg-background"
+                    required
                   />
                 </div>
-              )}
 
-            {formData.assetType === "peripheral" && (
-              <>
                 <div className="space-y-2">
                   <Label
-                    htmlFor="peripheralType"
+                    htmlFor="assetType"
                     className="text-sm font-medium text-foreground"
                   >
-                    Peripheral Type *
+                    Asset Type *
                   </Label>
                   <Select
-                    value={formData.peripheralType}
+                    value={formData.assetType}
                     onValueChange={(value) =>
-                      handleInputChange("peripheralType", value)
+                      handleInputChange("assetType", value)
                     }
                   >
                     <SelectTrigger className="border-input focus:border-ring bg-background">
-                      <SelectValue placeholder="Select peripheral type" />
+                      <SelectValue placeholder="Select asset type" />
                     </SelectTrigger>
                     <SelectContent className="bg-popover border-border">
-                      {peripheralTypes.map((type) => (
+                      {assetTypes.map((type) => (
                         <SelectItem
                           key={type.value}
                           value={type.value}
@@ -633,176 +550,56 @@ export function AssetFormModal({
                   </Select>
                 </div>
 
-                {formData.peripheralType !== "monitor" && (
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="itemName"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Item Name *
-                    </Label>
-                    <Input
-                      id="itemName"
-                      value={formData.itemName || ""}
-                      onChange={(e) =>
-                        handleInputChange("itemName", e.target.value)
-                      }
-                      placeholder="Enter item name"
-                      className="border-input focus:border-ring bg-background"
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            {(formData.assetType === "router" ||
-              formData.assetType === "switch") && (
-              <div className="space-y-2">
-                <Label
-                  htmlFor="networkType"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Network Device Type *
-                </Label>
-                <Select
-                  value={formData.networkType}
-                  onValueChange={(value) =>
-                    handleInputChange("networkType", value)
-                  }
-                >
-                  <SelectTrigger className="border-input focus:border-ring bg-background">
-                    <SelectValue placeholder="Select network device type" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    {networkTypes.map((type) => (
-                      <SelectItem
-                        key={type.value}
-                        value={type.value}
-                        className="hover:bg-accent"
-                      >
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {formData.assetType === "server" && (
-              <>
                 <div className="space-y-2">
                   <Label
-                    htmlFor="hostname"
+                    htmlFor="status"
                     className="text-sm font-medium text-foreground"
                   >
-                    Hostname / Server Name *
-                  </Label>
-                  <Input
-                    id="hostname"
-                    value={formData.hostname || ""}
-                    onChange={(e) =>
-                      handleInputChange("hostname", e.target.value)
-                    }
-                    placeholder="Enter hostname"
-                    className="border-input focus:border-ring bg-background"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="serverRole"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Server Role / Function
+                    Status *
                   </Label>
                   <Select
-                    value={formData.serverRole}
+                    value={formData.status}
                     onValueChange={(value) =>
-                      handleInputChange("serverRole", value)
+                      handleInputChange("status", value)
                     }
                   >
                     <SelectTrigger className="border-input focus:border-ring bg-background">
-                      <SelectValue placeholder="Select server role" />
+                      <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent className="bg-popover border-border">
-                      {serverRoles.map((role) => (
+                      {statusOptions.map((status) => (
                         <SelectItem
-                          key={role.value}
-                          value={role.value}
+                          key={status.value}
+                          value={status.value}
                           className="hover:bg-accent"
                         >
-                          {role.label}
+                          {status.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-              </>
-            )}
-          </div>
 
-          {/* Monitor specific fields */}
-          {formData.assetType === "peripheral" &&
-            formData.peripheralType === "monitor" && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
-                  Monitor Specifications
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Dynamic fields based on asset type */}
+                {formData.assetType === "compute" && (
                   <div className="space-y-2">
                     <Label
-                      htmlFor="screenSize"
+                      htmlFor="computeType"
                       className="text-sm font-medium text-foreground"
                     >
-                      Screen Size (inches)
-                    </Label>
-                    <Input
-                      id="screenSize"
-                      value={formData.screenSize || ""}
-                      onChange={(e) =>
-                        handleInputChange("screenSize", e.target.value)
-                      }
-                      placeholder="e.g., 24, 27, 32"
-                      className="border-input focus:border-ring bg-background"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="resolution"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Resolution
-                    </Label>
-                    <Input
-                      id="resolution"
-                      value={formData.resolution || ""}
-                      onChange={(e) =>
-                        handleInputChange("resolution", e.target.value)
-                      }
-                      placeholder="e.g., 1920x1080, 4K"
-                      className="border-input focus:border-ring bg-background"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="connectionType"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Connection Type
+                      Compute Type *
                     </Label>
                     <Select
-                      value={formData.connectionType}
+                      value={formData.computeType}
                       onValueChange={(value) =>
-                        handleInputChange("connectionType", value)
+                        handleInputChange("computeType", value)
                       }
                     >
                       <SelectTrigger className="border-input focus:border-ring bg-background">
-                        <SelectValue placeholder="Select connection type" />
+                        <SelectValue placeholder="Select compute type" />
                       </SelectTrigger>
                       <SelectContent className="bg-popover border-border">
-                        {connectionTypes.map((type) => (
+                        {computeTypes.map((type) => (
                           <SelectItem
                             key={type.value}
                             value={type.value}
@@ -814,642 +611,858 @@ export function AssetFormModal({
                       </SelectContent>
                     </Select>
                   </div>
+                )}
 
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">
-                      Purchase Date
-                    </Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
-                            !formData.purchaseDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.purchaseDate
-                            ? format(formData.purchaseDate, "PPP")
-                            : "Select date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="w-auto p-0 bg-popover border-border"
-                        align="start"
-                      >
-                        <Calendar
-                          mode="single"
-                          selected={formData.purchaseDate}
-                          onSelect={(date) =>
-                            handleDateChange("purchaseDate", date)
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-              </div>
-            )}
-
-          {/* Network Asset specific fields */}
-          {(formData.assetType === "router" ||
-            formData.assetType === "switch") &&
-            formData.networkType && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
-                  {formData.networkType === "router" ? "Router" : "Switch"}{" "}
-                  Configuration
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="firmwareVersion"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Firmware / OS Version
-                    </Label>
-                    <Input
-                      id="firmwareVersion"
-                      value={formData.firmwareVersion || ""}
-                      onChange={(e) =>
-                        handleInputChange("firmwareVersion", e.target.value)
-                      }
-                      placeholder="Enter firmware version"
-                      className="border-input focus:border-ring bg-background"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="ipAddress"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      IP Address (Management)
-                    </Label>
-                    <Input
-                      id="ipAddress"
-                      value={formData.ipAddress || ""}
-                      onChange={(e) =>
-                        handleInputChange("ipAddress", e.target.value)
-                      }
-                      placeholder="e.g., 192.168.1.1"
-                      className="border-input focus:border-ring bg-background"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="macAddress"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      MAC Address
-                    </Label>
-                    <Input
-                      id="macAddress"
-                      value={formData.macAddress || ""}
-                      onChange={(e) =>
-                        handleInputChange("macAddress", e.target.value)
-                      }
-                      placeholder="e.g., 00:1B:44:11:3A:B7"
-                      className="border-input focus:border-ring bg-background"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="numberOfPorts"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Number of Ports /{" "}
-                      {formData.networkType === "router"
-                        ? "Interfaces"
-                        : "Speed"}
-                    </Label>
-                    <Input
-                      id="numberOfPorts"
-                      value={formData.numberOfPorts || ""}
-                      onChange={(e) =>
-                        handleInputChange("numberOfPorts", e.target.value)
-                      }
-                      placeholder={
-                        formData.networkType === "router"
-                          ? "e.g., 4 LAN, 1 WAN"
-                          : "e.g., 24 ports 1Gbps"
-                      }
-                      className="border-input focus:border-ring bg-background"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="rackPosition"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Location / Rack Position
-                    </Label>
-                    <Input
-                      id="rackPosition"
-                      value={formData.rackPosition || ""}
-                      onChange={(e) =>
-                        handleInputChange("rackPosition", e.target.value)
-                      }
-                      placeholder="e.g., Rack 1, U5-U7"
-                      className="border-input focus:border-ring bg-background"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="configBackupLocation"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Configuration Backup Location
-                    </Label>
-                    <Input
-                      id="configBackupLocation"
-                      value={formData.configBackupLocation || ""}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "configBackupLocation",
-                          e.target.value
-                        )
-                      }
-                      placeholder="Enter backup location"
-                      className="border-input focus:border-ring bg-background"
-                    />
-                  </div>
-
-                  {formData.networkType === "router" && (
-                    <div className="space-y-2 md:col-span-2">
+                {formData.assetType === "compute" &&
+                  formData.computeType === "mobile" && (
+                    <div className="space-y-2">
                       <Label
-                        htmlFor="uplinkDownlinkInfo"
+                        htmlFor="imeiNumber"
                         className="text-sm font-medium text-foreground"
                       >
-                        Uplink / Downlink Information
+                        IMEI Number
                       </Label>
-                      <Textarea
-                        id="uplinkDownlinkInfo"
-                        value={formData.uplinkDownlinkInfo || ""}
+                      <Input
+                        id="imeiNumber"
+                        value={formData.imeiNumber || ""}
                         onChange={(e) =>
-                          handleInputChange(
-                            "uplinkDownlinkInfo",
-                            e.target.value
-                          )
+                          handleInputChange("imeiNumber", e.target.value)
                         }
-                        placeholder="Enter uplink/downlink details"
+                        placeholder="Enter IMEI number"
                         className="border-input focus:border-ring bg-background"
                       />
                     </div>
                   )}
 
-                  {formData.networkType === "switch" && (
-                    <>
+                {formData.assetType === "peripheral" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="peripheralType"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Peripheral Type *
+                      </Label>
+                      <Select
+                        value={formData.peripheralType}
+                        onValueChange={(value) =>
+                          handleInputChange("peripheralType", value)
+                        }
+                      >
+                        <SelectTrigger className="border-input focus:border-ring bg-background">
+                          <SelectValue placeholder="Select peripheral type" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover border-border">
+                          {peripheralTypes.map((type) => (
+                            <SelectItem
+                              key={type.value}
+                              value={type.value}
+                              className="hover:bg-accent"
+                            >
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {formData.peripheralType !== "monitor" && (
                       <div className="space-y-2">
                         <Label
-                          htmlFor="poeSupport"
+                          htmlFor="itemName"
                           className="text-sm font-medium text-foreground"
                         >
-                          PoE Support
+                          Item Name *
                         </Label>
                         <Input
-                          id="poeSupport"
-                          value={formData.poeSupport || ""}
+                          id="itemName"
+                          value={formData.itemName || ""}
                           onChange={(e) =>
-                            handleInputChange("poeSupport", e.target.value)
+                            handleInputChange("itemName", e.target.value)
                           }
-                          placeholder="e.g., Yes - 370W budget"
+                          placeholder="Enter item name"
+                          className="border-input focus:border-ring bg-background"
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {formData.assetType === "network" && (
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="networkType"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Network Device Type *
+                    </Label>
+                    <Select
+                      value={formData.networkType}
+                      onValueChange={(value) =>
+                        handleInputChange("networkType", value)
+                      }
+                    >
+                      <SelectTrigger className="border-input focus:border-ring bg-background">
+                        <SelectValue placeholder="Select network device type" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border">
+                        {networkTypes.map((type) => (
+                          <SelectItem
+                            key={type.value}
+                            value={type.value}
+                            className="hover:bg-accent"
+                          >
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {formData.assetType === "server" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="hostname"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Hostname / Server Name *
+                      </Label>
+                      <Input
+                        id="hostname"
+                        value={formData.hostname || ""}
+                        onChange={(e) =>
+                          handleInputChange("hostname", e.target.value)
+                        }
+                        placeholder="Enter hostname"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="serverRole"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Server Role / Function
+                      </Label>
+                      <Select
+                        value={formData.serverRole}
+                        onValueChange={(value) =>
+                          handleInputChange("serverRole", value)
+                        }
+                      >
+                        <SelectTrigger className="border-input focus:border-ring bg-background">
+                          <SelectValue placeholder="Select server role" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover border-border">
+                          {serverRoles.map((role) => (
+                            <SelectItem
+                              key={role.value}
+                              value={role.value}
+                              className="hover:bg-accent"
+                            >
+                              {role.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Monitor specific fields */}
+              {formData.assetType === "peripheral" &&
+                formData.peripheralType === "monitor" && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                      Monitor Specifications
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="screenSize"
+                          className="text-sm font-medium text-foreground"
+                        >
+                          Screen Size (inches)
+                        </Label>
+                        <Input
+                          id="screenSize"
+                          value={formData.screenSize || ""}
+                          onChange={(e) =>
+                            handleInputChange("screenSize", e.target.value)
+                          }
+                          placeholder="e.g., 24, 27, 32"
                           className="border-input focus:border-ring bg-background"
                         />
                       </div>
 
                       <div className="space-y-2">
                         <Label
-                          htmlFor="stackClusterMembership"
+                          htmlFor="resolution"
                           className="text-sm font-medium text-foreground"
                         >
-                          Stack/Cluster Membership
+                          Resolution
                         </Label>
                         <Input
-                          id="stackClusterMembership"
-                          value={formData.stackClusterMembership || ""}
+                          id="resolution"
+                          value={formData.resolution || ""}
+                          onChange={(e) =>
+                            handleInputChange("resolution", e.target.value)
+                          }
+                          placeholder="e.g., 1920x1080, 4K"
+                          className="border-input focus:border-ring bg-background"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="connectionType"
+                          className="text-sm font-medium text-foreground"
+                        >
+                          Connection Type
+                        </Label>
+                        <Select
+                          value={formData.connectionType}
+                          onValueChange={(value) =>
+                            handleInputChange("connectionType", value)
+                          }
+                        >
+                          <SelectTrigger className="border-input focus:border-ring bg-background">
+                            <SelectValue placeholder="Select connection type" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover border-border">
+                            {connectionTypes.map((type) => (
+                              <SelectItem
+                                key={type.value}
+                                value={type.value}
+                                className="hover:bg-accent"
+                              >
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+              {/* Network Asset specific fields */}
+              {formData.assetType === "network" && formData.networkType && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                    {formData.networkType === "router" ? "Router" : "Switch"}{" "}
+                    Configuration
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="firmwareVersion"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Firmware / OS Version
+                      </Label>
+                      <Input
+                        id="firmwareVersion"
+                        value={formData.firmwareVersion || ""}
+                        onChange={(e) =>
+                          handleInputChange("firmwareVersion", e.target.value)
+                        }
+                        placeholder="Enter firmware version"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="ipAddress"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        IP Address (Management)
+                      </Label>
+                      <Input
+                        id="ipAddress"
+                        value={formData.ipAddress || ""}
+                        onChange={(e) =>
+                          handleInputChange("ipAddress", e.target.value)
+                        }
+                        placeholder="e.g., 192.168.1.1"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="macAddress"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        MAC Address
+                      </Label>
+                      <Input
+                        id="macAddress"
+                        value={formData.macAddress || ""}
+                        onChange={(e) =>
+                          handleInputChange("macAddress", e.target.value)
+                        }
+                        placeholder="e.g., 00:1B:44:11:3A:B7"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="numberOfPorts"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Number of Ports /{" "}
+                        {formData.networkType === "router"
+                          ? "Interfaces"
+                          : "Speed"}
+                      </Label>
+                      <Input
+                        id="numberOfPorts"
+                        value={formData.numberOfPorts || ""}
+                        onChange={(e) =>
+                          handleInputChange("numberOfPorts", e.target.value)
+                        }
+                        placeholder={
+                          formData.networkType === "router"
+                            ? "e.g., 4 LAN, 1 WAN"
+                            : "e.g., 24 ports 1Gbps"
+                        }
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="rackPosition"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Location / Rack Position
+                      </Label>
+                      <Input
+                        id="rackPosition"
+                        value={formData.rackPosition || ""}
+                        onChange={(e) =>
+                          handleInputChange("rackPosition", e.target.value)
+                        }
+                        placeholder="e.g., Rack 1, U5-U7"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="configBackupLocation"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Configuration Backup Location
+                      </Label>
+                      <Input
+                        id="configBackupLocation"
+                        value={formData.configBackupLocation || ""}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "configBackupLocation",
+                            e.target.value
+                          )
+                        }
+                        placeholder="Enter backup location"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    {formData.networkType === "router" && (
+                      <div className="space-y-2 md:col-span-2">
+                        <Label
+                          htmlFor="uplinkDownlinkInfo"
+                          className="text-sm font-medium text-foreground"
+                        >
+                          Uplink / Downlink Information
+                        </Label>
+                        <Textarea
+                          id="uplinkDownlinkInfo"
+                          value={formData.uplinkDownlinkInfo || ""}
                           onChange={(e) =>
                             handleInputChange(
-                              "stackClusterMembership",
+                              "uplinkDownlinkInfo",
                               e.target.value
                             )
                           }
-                          placeholder="e.g., Stack ID 1, Member 2"
+                          placeholder="Enter uplink/downlink details"
                           className="border-input focus:border-ring bg-background"
                         />
                       </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
+                    )}
 
-          {/* Server specific fields */}
-          {formData.assetType === "server" && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
-                Server Configuration
-              </h3>
+                    {formData.networkType === "switch" && (
+                      <>
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="poeSupport"
+                            className="text-sm font-medium text-foreground"
+                          >
+                            PoE Support
+                          </Label>
+                          <Input
+                            id="poeSupport"
+                            value={formData.poeSupport || ""}
+                            onChange={(e) =>
+                              handleInputChange("poeSupport", e.target.value)
+                            }
+                            placeholder="e.g., Yes - 370W budget"
+                            className="border-input focus:border-ring bg-background"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="stackClusterMembership"
+                            className="text-sm font-medium text-foreground"
+                          >
+                            Stack/Cluster Membership
+                          </Label>
+                          <Input
+                            id="stackClusterMembership"
+                            value={formData.stackClusterMembership || ""}
+                            onChange={(e) =>
+                              handleInputChange(
+                                "stackClusterMembership",
+                                e.target.value
+                              )
+                            }
+                            placeholder="e.g., Stack ID 1, Member 2"
+                            className="border-input focus:border-ring bg-background"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Server specific fields */}
+              {formData.computeType === "server" && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                    Server Configuration
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="processor"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Processor (CPU) *
+                      </Label>
+                      <Input
+                        id="processor"
+                        value={formData.processor || ""}
+                        onChange={(e) =>
+                          handleInputChange("processor", e.target.value)
+                        }
+                        placeholder="e.g., Intel Xeon E5-2690 v4 (14 cores, 2.6GHz)"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="ramSize"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        RAM Size & Configuration *
+                      </Label>
+                      <Input
+                        id="ramSize"
+                        value={formData.ramSize || ""}
+                        onChange={(e) =>
+                          handleInputChange("ramSize", e.target.value)
+                        }
+                        placeholder="e.g., 64GB (4x16GB DDR4)"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="storage"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Storage Configuration
+                      </Label>
+                      <Input
+                        id="storage"
+                        value={formData.storage || ""}
+                        onChange={(e) =>
+                          handleInputChange("storage", e.target.value)
+                        }
+                        placeholder="e.g., 2x500GB SSD RAID 1"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="operatingSystem"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Operating System / Version
+                      </Label>
+                      <Input
+                        id="operatingSystem"
+                        value={formData.operatingSystem || ""}
+                        onChange={(e) =>
+                          handleInputChange("operatingSystem", e.target.value)
+                        }
+                        placeholder="e.g., Windows Server 2022, Ubuntu 22.04"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="productionIpAddress"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Production IP Address(es)
+                      </Label>
+                      <Input
+                        id="productionIpAddress"
+                        value={formData.productionIpAddress || ""}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "productionIpAddress",
+                            e.target.value
+                          )
+                        }
+                        placeholder="e.g., 10.1.1.50, 192.168.1.100"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="managementMacAddress"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        MAC Address(es)
+                      </Label>
+                      <Input
+                        id="managementMacAddress"
+                        value={formData.managementMacAddress || ""}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "managementMacAddress",
+                            e.target.value
+                          )
+                        }
+                        placeholder="Primary NIC MAC address"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="powerSupply"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Power Supply Configuration
+                      </Label>
+                      <Input
+                        id="powerSupply"
+                        value={formData.powerSupply || ""}
+                        onChange={(e) =>
+                          handleInputChange("powerSupply", e.target.value)
+                        }
+                        placeholder="e.g., Dual 750W redundant"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-2 md:col-span-2">
+                      <Label
+                        htmlFor="installedApplications"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Installed Applications / Services
+                      </Label>
+                      <Textarea
+                        id="installedApplications"
+                        value={formData.installedApplications || ""}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "installedApplications",
+                            e.target.value
+                          )
+                        }
+                        placeholder="List key applications and services running on this server"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Device Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label
-                    htmlFor="processor"
+                    htmlFor="brand"
                     className="text-sm font-medium text-foreground"
                   >
-                    Processor (CPU) *
+                    Brand / Manufacturer
                   </Label>
                   <Input
-                    id="processor"
-                    value={formData.processor || ""}
-                    onChange={(e) =>
-                      handleInputChange("processor", e.target.value)
-                    }
-                    placeholder="e.g., Intel Xeon E5-2690 v4 (14 cores, 2.6GHz)"
+                    id="brand"
+                    value={formData.brand}
+                    onChange={(e) => handleInputChange("brand", e.target.value)}
+                    placeholder="Enter brand/manufacturer"
                     className="border-input focus:border-ring bg-background"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label
-                    htmlFor="ramSize"
+                    htmlFor="model"
                     className="text-sm font-medium text-foreground"
                   >
-                    RAM Size & Configuration *
+                    Model
                   </Label>
                   <Input
-                    id="ramSize"
-                    value={formData.ramSize || ""}
+                    id="model"
+                    value={formData.model}
+                    onChange={(e) => handleInputChange("model", e.target.value)}
+                    placeholder="Enter model"
+                    className="border-input focus:border-ring bg-background"
+                  />
+                </div>
+
+                {/* Hide dates for peripherals, show for other asset types */}
+                {formData.assetType !== "peripheral" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-foreground">
+                        Deployed Date
+                      </Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
+                              !formData.deployedDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.deployedDate &&
+                            !isNaN(formData.deployedDate.getTime())
+                              ? format(formData.deployedDate, "PPP")
+                              : "Select date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-auto p-0 bg-popover border-border"
+                          align="start"
+                        >
+                          <Calendar
+                            mode="single"
+                            selected={formData.deployedDate}
+                            onSelect={(date) =>
+                              handleDateChange("deployedDate", date)
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-foreground">
+                        Warranty Expiration
+                      </Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
+                              !formData.warrantyExpiration &&
+                                "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.warrantyExpiration &&
+                            !isNaN(formData.warrantyExpiration.getTime())
+                              ? format(formData.warrantyExpiration, "PPP")
+                              : "Select date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-auto p-0 bg-popover border-border"
+                          align="start"
+                        >
+                          <Calendar
+                            mode="single"
+                            selected={formData.warrantyExpiration}
+                            onSelect={(date) =>
+                              handleDateChange("warrantyExpiration", date)
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Assignment Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Hide vendor for peripherals */}
+                {formData.assetType !== "peripheral" && (
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="vendor"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Vendor
+                    </Label>
+                    <Input
+                      id="vendor"
+                      value={formData.vendor}
+                      onChange={(e) =>
+                        handleInputChange("vendor", e.target.value)
+                      }
+                      placeholder="Enter vendor"
+                      className="border-input focus:border-ring bg-background"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="assignedUser"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Assigned User
+                  </Label>
+                  <Input
+                    id="assignedUser"
+                    value={formData.assignedUser}
                     onChange={(e) =>
-                      handleInputChange("ramSize", e.target.value)
+                      handleInputChange("assignedUser", e.target.value)
                     }
-                    placeholder="e.g., 64GB (4x16GB DDR4)"
+                    placeholder="Enter assigned user"
                     className="border-input focus:border-ring bg-background"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label
-                    htmlFor="storage"
+                    htmlFor="department"
                     className="text-sm font-medium text-foreground"
                   >
-                    Storage Configuration
+                    Department
                   </Label>
                   <Input
-                    id="storage"
-                    value={formData.storage || ""}
+                    id="department"
+                    value={formData.department}
                     onChange={(e) =>
-                      handleInputChange("storage", e.target.value)
+                      handleInputChange("department", e.target.value)
                     }
-                    placeholder="e.g., 2x500GB SSD RAID 1"
+                    placeholder="Enter department"
                     className="border-input focus:border-ring bg-background"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label
-                    htmlFor="operatingSystem"
+                    htmlFor="location"
                     className="text-sm font-medium text-foreground"
                   >
-                    Operating System / Version
+                    Location
                   </Label>
                   <Input
-                    id="operatingSystem"
-                    value={formData.operatingSystem || ""}
+                    id="location"
+                    value={formData.location}
                     onChange={(e) =>
-                      handleInputChange("operatingSystem", e.target.value)
+                      handleInputChange("location", e.target.value)
                     }
-                    placeholder="e.g., Windows Server 2022, Ubuntu 22.04"
+                    placeholder="Enter location"
                     className="border-input focus:border-ring bg-background"
                   />
                 </div>
+              </div>
 
+              {/* Additional Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label
-                    htmlFor="productionIpAddress"
+                    htmlFor="specifications"
                     className="text-sm font-medium text-foreground"
                   >
-                    Production IP Address(es)
-                  </Label>
-                  <Input
-                    id="productionIpAddress"
-                    value={formData.productionIpAddress || ""}
-                    onChange={(e) =>
-                      handleInputChange("productionIpAddress", e.target.value)
-                    }
-                    placeholder="e.g., 10.1.1.50, 192.168.1.100"
-                    className="border-input focus:border-ring bg-background"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="managementMacAddress"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    MAC Address(es)
-                  </Label>
-                  <Input
-                    id="managementMacAddress"
-                    value={formData.managementMacAddress || ""}
-                    onChange={(e) =>
-                      handleInputChange("managementMacAddress", e.target.value)
-                    }
-                    placeholder="Primary NIC MAC address"
-                    className="border-input focus:border-ring bg-background"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="powerSupply"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Power Supply Configuration
-                  </Label>
-                  <Input
-                    id="powerSupply"
-                    value={formData.powerSupply || ""}
-                    onChange={(e) =>
-                      handleInputChange("powerSupply", e.target.value)
-                    }
-                    placeholder="e.g., Dual 750W redundant"
-                    className="border-input focus:border-ring bg-background"
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label
-                    htmlFor="installedApplications"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Installed Applications / Services
+                    Specifications
                   </Label>
                   <Textarea
-                    id="installedApplications"
-                    value={formData.installedApplications || ""}
+                    id="specifications"
+                    value={formData.specifications}
                     onChange={(e) =>
-                      handleInputChange("installedApplications", e.target.value)
+                      handleInputChange("specifications", e.target.value)
                     }
-                    placeholder="List key applications and services running on this server"
-                    className="border-input focus:border-ring bg-background"
+                    placeholder="Enter technical specifications"
+                    className="border-input focus:border-ring bg-background min-h-[120px]"
+                    rows={5}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="description"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Description
+                  </Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) =>
+                      handleInputChange("description", e.target.value)
+                    }
+                    placeholder="Enter description"
+                    className="border-input focus:border-ring bg-background min-h-[120px]"
+                    rows={5}
                   />
                 </div>
               </div>
             </div>
-          )}
+          </form>
+        </div>
 
-          {/* Device Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label
-                htmlFor="brand"
-                className="text-sm font-medium text-foreground"
-              >
-                Brand / Manufacturer
-              </Label>
-              <Input
-                id="brand"
-                value={formData.brand}
-                onChange={(e) => handleInputChange("brand", e.target.value)}
-                placeholder="Enter brand/manufacturer"
-                className="border-input focus:border-ring bg-background"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="model"
-                className="text-sm font-medium text-foreground"
-              >
-                Model
-              </Label>
-              <Input
-                id="model"
-                value={formData.model}
-                onChange={(e) => handleInputChange("model", e.target.value)}
-                placeholder="Enter model"
-                className="border-input focus:border-ring bg-background"
-              />
-            </div>
-
-            {/* Hide dates for peripherals, show for other asset types */}
-            {formData.assetType !== "peripherals" && (
-              <>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-foreground">
-                    Deployed Date
-                  </Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
-                          !formData.deployedDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {formData.deployedDate
-                          ? format(formData.deployedDate, "PPP")
-                          : "Select date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0 bg-popover border-border"
-                      align="start"
-                    >
-                      <Calendar
-                        mode="single"
-                        selected={formData.deployedDate}
-                        onSelect={(date) =>
-                          handleDateChange("deployedDate", date)
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-foreground">
-                    Warranty Expiration
-                  </Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
-                          !formData.warrantyExpiration &&
-                            "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {formData.warrantyExpiration
-                          ? format(formData.warrantyExpiration, "PPP")
-                          : "Select date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0 bg-popover border-border"
-                      align="start"
-                    >
-                      <Calendar
-                        mode="single"
-                        selected={formData.warrantyExpiration}
-                        onSelect={(date) =>
-                          handleDateChange("warrantyExpiration", date)
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Assignment Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Hide vendor for peripherals */}
-            {formData.assetType !== "peripherals" && (
-              <div className="space-y-2">
-                <Label
-                  htmlFor="vendor"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Vendor
-                </Label>
-                <Input
-                  id="vendor"
-                  value={formData.vendor}
-                  onChange={(e) => handleInputChange("vendor", e.target.value)}
-                  placeholder="Enter vendor"
-                  className="border-input focus:border-ring bg-background"
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="assignedUser"
-                className="text-sm font-medium text-foreground"
-              >
-                Assigned User
-              </Label>
-              <Input
-                id="assignedUser"
-                value={formData.assignedUser}
-                onChange={(e) =>
-                  handleInputChange("assignedUser", e.target.value)
-                }
-                placeholder="Enter assigned user"
-                className="border-input focus:border-ring bg-background"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="department"
-                className="text-sm font-medium text-foreground"
-              >
-                Department
-              </Label>
-              <Input
-                id="department"
-                value={formData.department}
-                onChange={(e) =>
-                  handleInputChange("department", e.target.value)
-                }
-                placeholder="Enter department"
-                className="border-input focus:border-ring bg-background"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="location"
-                className="text-sm font-medium text-foreground"
-              >
-                Location
-              </Label>
-              <Input
-                id="location"
-                value={formData.location}
-                onChange={(e) => handleInputChange("location", e.target.value)}
-                placeholder="Enter location"
-                className="border-input focus:border-ring bg-background"
-              />
-            </div>
-          </div>
-
-          {/* Additional Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label
-                htmlFor="specifications"
-                className="text-sm font-medium text-foreground"
-              >
-                Specifications
-              </Label>
-              <Textarea
-                id="specifications"
-                value={formData.specifications}
-                onChange={(e) =>
-                  handleInputChange("specifications", e.target.value)
-                }
-                placeholder="Enter technical specifications"
-                className="border-input focus:border-ring bg-background min-h-[120px]"
-                rows={5}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="description"
-                className="text-sm font-medium text-foreground"
-              >
-                Description
-              </Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  handleInputChange("description", e.target.value)
-                }
-                placeholder="Enter description"
-                className="border-input focus:border-ring bg-background min-h-[120px]"
-                rows={5}
-              />
-            </div>
-          </div>
-
-          {/* Form Actions */}
-          <div className="flex items-center justify-end space-x-4 pt-6 border-t border-border">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancel}
-              className="border-border hover:bg-accent/50"
-            >
-              <X className="w-4 h-4 mr-2" />
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-primary hover:bg-primary/90 shadow-lg transition-all duration-200"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {isRedeploying ? "Redeploy" : "Save Asset"}
-            </Button>
-          </div>
-        </form>
+        {/* Form Actions - Fixed Footer */}
+        <div className="flex items-center justify-end space-x-4 px-6 py-4 border-t border-border bg-card">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancel}
+            className="border-border hover:bg-accent/50"
+          >
+            <X className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            className="bg-primary hover:bg-primary/90 shadow-lg transition-all duration-200"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {isRedeploying ? "Redeploy" : "Save Asset"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -1,14 +1,14 @@
-import React from 'react';
-import { Search, Download } from 'lucide-react';
-import type { AssetType, AssetStatus } from '../types/inventory';
+import React from "react";
+import { Search, Download } from "lucide-react";
+import type { AssetType, AssetStatus } from "../types/inventory";
 
 interface SearchAndFilterProps {
   searchTerm: string;
   onSearchChange: (term: string) => void;
-  selectedType: AssetType | 'all';
-  onTypeChange: (type: AssetType | 'all') => void;
-  selectedStatus: AssetStatus | 'all';
-  onStatusChange: (status: AssetStatus | 'all') => void;
+  selectedType: AssetType | "all";
+  onTypeChange: (type: AssetType | "all") => void;
+  selectedStatus: AssetStatus | "all";
+  onStatusChange: (status: AssetStatus | "all") => void;
   selectedDepartment: string;
   onDepartmentChange: (department: string) => void;
   departments: string[];
@@ -27,10 +27,27 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   onDepartmentChange,
   departments,
   onExport,
-  canExport = true
+  canExport = true,
 }) => {
-  const assetTypes: (AssetType | 'all')[] = ['all', 'laptop', 'desktop', 'printer', 'server', 'router', 'switch', 'mobile', 'peripheral'];
-  const assetStatuses: (AssetStatus | 'all')[] = ['all', 'in-use', 'spare', 'repair', 'retired'];
+  const assetTypes: (AssetType | "all")[] = [
+    "all",
+    "laptop",
+    "desktop",
+    "printer",
+    "scanner",
+    "monitor",
+    "server",
+    "router",
+    "switch",
+    "mobile",
+  ];
+  const assetStatuses: (AssetStatus | "all")[] = [
+    "all",
+    "in-use",
+    "spare",
+    "repair",
+    "retired",
+  ];
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -53,12 +70,14 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         <div>
           <select
             value={selectedType}
-            onChange={(e) => onTypeChange(e.target.value as AssetType | 'all')}
+            onChange={(e) => onTypeChange(e.target.value as AssetType | "all")}
             className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           >
-            {assetTypes.map(type => (
+            {assetTypes.map((type) => (
               <option key={type} value={type}>
-                {type === 'all' ? 'All Types' : type.charAt(0).toUpperCase() + type.slice(1)}
+                {type === "all"
+                  ? "All Types"
+                  : type.charAt(0).toUpperCase() + type.slice(1)}
               </option>
             ))}
           </select>
@@ -68,12 +87,16 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         <div>
           <select
             value={selectedStatus}
-            onChange={(e) => onStatusChange(e.target.value as AssetStatus | 'all')}
+            onChange={(e) =>
+              onStatusChange(e.target.value as AssetStatus | "all")
+            }
             className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           >
-            {assetStatuses.map(status => (
+            {assetStatuses.map((status) => (
               <option key={status} value={status}>
-                {status === 'all' ? 'All Statuses' : status.replace('-', ' ').toUpperCase()}
+                {status === "all"
+                  ? "All Statuses"
+                  : status.replace("-", " ").toUpperCase()}
               </option>
             ))}
           </select>
@@ -87,8 +110,10 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
             className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">All Departments</option>
-            {departments.map(dept => (
-              <option key={dept} value={dept}>{dept}</option>
+            {departments.map((dept) => (
+              <option key={dept} value={dept}>
+                {dept}
+              </option>
             ))}
           </select>
         </div>
