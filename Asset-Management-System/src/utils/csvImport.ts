@@ -1,5 +1,6 @@
 import Papa from "papaparse";
 import type { Asset, Receivable, License } from "../types/inventory";
+import { generateAssetTag } from "../services/assetService";
 
 // Helper function to format dates to "October 15th, 2025" format
 const formatDate = (dateString: string): string => {
@@ -88,22 +89,94 @@ const formatDate = (dateString: string): string => {
   }
 };
 
-// Helper function to transform asset data with date formatting
-const transformAssetData = (data: any[]): Omit<Asset, "id">[] => {
-  return data.map((item) => ({
-    ...item,
-    // Transform date fields
-    deployedDate: item.deployedDate
-      ? formatDate(item.deployedDate)
-      : item.deployedDate,
-    warrantyExpiry: item.warrantyExpiry
-      ? formatDate(item.warrantyExpiry)
-      : item.warrantyExpiry,
-    // Handle purchaseDate if it exists
-    ...(item.purchaseDate && {
-      deployedDate: formatDate(item.purchaseDate),
-    }),
-  }));
+// Helper function to transform asset data with date formatting and auto-generated tags
+const transformAssetData = async (
+  data: any[]
+): Promise<Omit<Asset, "id">[]> => {
+  const transformedAssets = [];
+
+  // Get the starting sequence number for the current year
+  const currentYear = new Date().getFullYear();
+  const startingSequence = await getNextGlobalSequenceNumber(currentYear);
+
+  // Process assets in order and assign sequential numbers
+  for (let i = 0; i < data.length; i++) {
+    const item = data[i];
+
+    // Determine the specific asset type
+    let specificAssetType = item.type;
+    if (item.type === "compute" && item.computeType) {
+      specificAssetType = item.computeType;
+    } else if (item.type === "peripheral" && item.peripheralType) {
+      specificAssetType = item.peripheralType;
+    }
+
+    const year = item.deployedDate
+      ? new Date(item.deployedDate).getFullYear()
+      : currentYear;
+
+    const sequenceNumber = startingSequence + i;
+
+    // Generate asset tag with the global sequence
+    const generatedAssetTag = `BUA-${getTypeAbbreviation(
+      specificAssetType
+    )}-${year}-${sequenceNumber.toString().padStart(4, "0")}`;
+
+    transformedAssets.push({
+      ...item,
+      assetTag: generatedAssetTag,
+      type: specificAssetType,
+      // Transform date fields
+      deployedDate: item.deployedDate
+        ? formatDate(item.deployedDate)
+        : item.deployedDate,
+      warrantyExpiry: item.warrantyExpiry
+        ? formatDate(item.warrantyExpiry)
+        : item.warrantyExpiry,
+      // Handle purchaseDate if it exists
+      ...(item.purchaseDate && {
+        deployedDate: formatDate(item.purchaseDate),
+      }),
+    });
+  }
+
+  return transformedAssets;
+};
+
+// Helper function to get the next global sequence number for a year
+const getNextGlobalSequenceNumber = async (year: number): Promise<number> => {
+  const { getAssets } = await import("../services/assetService");
+  const existingAssets = await getAssets();
+
+  // Filter assets by year (all types)
+  const sameYearAssets = existingAssets.filter((asset) => {
+    const assetYear = asset.deployedDate
+      ? new Date(asset.deployedDate).getFullYear()
+      : new Date().getFullYear();
+    return assetYear === year;
+  });
+
+  return sameYearAssets.length + 1;
+};
+
+// Helper function to get type abbreviation
+const getTypeAbbreviation = (assetType: string): string => {
+  const typeAbbreviations: { [key: string]: string } = {
+    laptop: "LAP",
+    desktop: "DES",
+    server: "SRV",
+    monitor: "MON",
+    printer: "PRI",
+    phone: "PHO",
+    tablet: "TAB",
+    network: "NET",
+    scanner: "SCA",
+    mobile: "MOB",
+    router: "ROU",
+    switch: "SWI",
+  };
+
+  return typeAbbreviations[assetType.toLowerCase()] || "ASS";
 };
 
 // Helper function to transform receivable data with date formatting
@@ -150,13 +223,17 @@ export const importFromCSV = <T>(file: File): Promise<T[]> => {
 export const importAssetsFromCSV = (
   file: File
 ): Promise<Omit<Asset, "id">[]> => {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
-        const transformedData = transformAssetData(results.data);
-        resolve(transformedData);
+      complete: async (results) => {
+        try {
+          const transformedData = await transformAssetData(results.data);
+          resolve(transformedData);
+        } catch (error) {
+          reject(error);
+        }
       },
       error: (error) => {
         reject(error);

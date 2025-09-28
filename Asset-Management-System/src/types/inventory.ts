@@ -1,9 +1,13 @@
 export type AssetType =
-  | "compute"
+  | "laptop"
+  | "desktop"
+  | "mobile"
+  | "printer"
+  | "scanner"
+  | "monitor"
   | "server"
   | "router"
-  | "switch"
-  | "peripheral";
+  | "switch";
 export type AssetStatus = "in-use" | "spare" | "repair" | "retired";
 export type UserRole = "admin" | "user" | "auditor";
 export type ReceivableStatus = "pending" | "received" | "deployed";
@@ -36,9 +40,10 @@ export interface Asset {
   location: string;
   notes: string;
   description?: string;
-  peripheralType?: "printer" | "scanner";
+  peripheralType?: "printer" | "scanner" | "monitor";
+  networkType?: "router" | "switch";
   itemName?: string;
-  computeType?: "laptop" | "desktop" | "mobile";
+  computeType?: "laptop" | "desktop" | "mobile" | "server";
 }
 
 export interface RetrievedAsset extends Asset {

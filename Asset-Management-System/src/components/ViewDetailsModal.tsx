@@ -172,8 +172,109 @@ const getStatusBadgeVariant = (key: string, value: string) => {
   return "secondary";
 };
 
+// Helper function to check if field is applicable to asset type
+const isFieldApplicable = (
+  key: string,
+  assetType: string,
+  value: unknown
+): boolean => {
+  // Always show basic fields
+  const basicFields = [
+    "id",
+    "assetTag",
+    "serialNumber",
+    "itemName",
+    "licenseName",
+    "brand",
+    "model",
+    "type",
+    "category",
+    "status",
+    "specifications",
+  ];
+  if (basicFields.includes(key)) return true;
+
+  // Always show assignment and date fields
+  const commonFields = [
+    "assignedUser",
+    "department",
+    "location",
+    "vendor",
+    "supplierName",
+    "deployedDate",
+    "purchaseDate",
+    "retrievedDate",
+    "warrantyExpiry",
+    "warrantyExpiration",
+    "timestamp",
+    "notes",
+    "description",
+  ];
+  if (commonFields.includes(key)) return true;
+
+  // Don't show empty or null values
+  if (!value || value === "" || value === "N/A") return false;
+
+  // Type-specific field visibility
+  switch (assetType?.toLowerCase()) {
+    case "laptop":
+    case "desktop":
+    case "mobile":
+      return [
+        "computeType",
+        "hostname",
+        "processor",
+        "ramSize",
+        "storageSize",
+        "operatingSystem",
+        "imeiNumber",
+      ].includes(key);
+
+    case "printer":
+    case "scanner":
+      return ["peripheralType", "printerType", "connectionType"].includes(key);
+
+    case "monitor":
+      return [
+        "peripheralType",
+        "screenSize",
+        "resolution",
+        "connectionType",
+      ].includes(key);
+
+    case "server":
+      return [
+        "hostname",
+        "processor",
+        "ramSize",
+        "storageSize",
+        "operatingSystem",
+        "powerSupply",
+        "serverRole",
+        "installedApplications",
+      ].includes(key);
+
+    case "router":
+    case "switch":
+      return [
+        "networkType",
+        "firmwareVersion",
+        "ipAddress",
+        "macAddress",
+        "numberOfPorts",
+        "connectionType",
+      ].includes(key);
+
+    default:
+      // For unknown types, show all fields that have values
+      return true;
+  }
+};
+
 // Helper function to categorize fields
 const categorizeFields = (item: Record<string, unknown>) => {
+  const assetType = String(item.type || "").toLowerCase();
+
   const categories = {
     basic: [] as Array<[string, unknown]>,
     technical: [] as Array<[string, unknown]>,
@@ -183,6 +284,9 @@ const categorizeFields = (item: Record<string, unknown>) => {
   };
 
   Object.entries(item).forEach(([key, value]) => {
+    // Skip non-applicable fields
+    if (!isFieldApplicable(key, assetType, value)) return;
+
     if (
       [
         "id",
@@ -194,6 +298,7 @@ const categorizeFields = (item: Record<string, unknown>) => {
         "model",
         "type",
         "category",
+        "status",
       ].includes(key)
     ) {
       categories.basic.push([key, value]);
@@ -208,13 +313,18 @@ const categorizeFields = (item: Record<string, unknown>) => {
         "storageSize",
         "operatingSystem",
         "specifications",
-        "monitorSize",
-        "monitorResolution",
+        "screenSize",
+        "resolution",
         "printerType",
-        "networkPorts",
+        "numberOfPorts",
         "powerSupply",
         "serverRole",
         "installedApplications",
+        "imeiNumber",
+        "firmwareVersion",
+        "ipAddress",
+        "macAddress",
+        "connectionType",
       ].includes(key)
     ) {
       categories.technical.push([key, value]);

@@ -37,9 +37,18 @@ const ImportModal: React.FC<ImportModalProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [parsedData, setParsedData] = useState<unknown[] | null>(null);
+  const [transformedData, setTransformedData] = useState<unknown[] | null>(
+    null
+  );
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleFileParse = async (file: File) => {
+    setIsLoading(true);
+    setError(null);
+    setParsedData(null);
+    setTransformedData(null);
+
     try {
       let data: unknown[];
 
@@ -67,13 +76,17 @@ const ImportModal: React.FC<ImportModalProps> = ({
                     ", "
                   )}`
                 );
+                setIsLoading(false);
                 return;
               }
               setParsedData(results.data);
+              setTransformedData(results.data);
               setError(null);
+              setIsLoading(false);
             },
             error: () => {
               setError("Error parsing CSV file.");
+              setIsLoading(false);
             },
           });
           return;
@@ -84,7 +97,7 @@ const ImportModal: React.FC<ImportModalProps> = ({
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
-        complete: (results) => {
+        complete: async (results) => {
           const headers = results.meta.fields;
           if (JSON.stringify(headers) !== JSON.stringify(expectedHeaders)) {
             setError(
@@ -94,15 +107,31 @@ const ImportModal: React.FC<ImportModalProps> = ({
             );
             return;
           }
-          setParsedData(data);
+          // Store the transformed data for import
+          setTransformedData(data);
+
+          // For assets, show raw data in preview (tags will be generated on import)
+          if (importType === "assets") {
+            // Add placeholder assetTag column for preview
+            const previewData = results.data.map((item: any) => ({
+              ...item,
+              assetTag: "[Auto-generated]",
+            }));
+            setParsedData(previewData);
+          } else {
+            setParsedData(data);
+          }
           setError(null);
+          setIsLoading(false);
         },
         error: () => {
           setError("Error parsing CSV file.");
+          setIsLoading(false);
         },
       });
     } catch (error) {
       setError("Error processing CSV file with date transformation.");
+      setIsLoading(false);
     }
   };
 
@@ -156,14 +185,15 @@ const ImportModal: React.FC<ImportModalProps> = ({
   };
 
   const handleConfirmImport = () => {
-    if (parsedData) {
-      onImport(parsedData);
+    if (transformedData) {
+      onImport(transformedData);
       handleClose();
     }
   };
 
   const handleClose = () => {
     setParsedData(null);
+    setTransformedData(null);
     setError(null);
     onClose();
   };
@@ -245,6 +275,18 @@ const ImportModal: React.FC<ImportModalProps> = ({
               </Button>
             </div>
           </>
+        ) : isLoading ? (
+          <div>
+            <div className="text-center p-6 bg-blue-50 rounded-lg">
+              <div className="w-16 h-16 mx-auto mb-4">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500"></div>
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Verifying CSV File</h3>
+              <p className="text-lg text-gray-600">
+                Please wait while we validate your CSV data...
+              </p>
+            </div>
+          </div>
         ) : (
           <div>
             <div className="text-center p-6 bg-green-50 rounded-lg">

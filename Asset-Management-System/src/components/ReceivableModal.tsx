@@ -137,7 +137,8 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({
     "router",
     "switch",
     "mobile",
-    "peripheral",
+    "scanner",
+    "monitor",
   ];
   const receivableStatuses: ReceivableStatus[] = [
     "pending",
@@ -350,7 +351,9 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({
                 }`}
               />
               {errors.description && (
-                <p className="text-red-500 text-xs mt-1">{errors.description}</p>
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.description}
+                </p>
               )}
             </div>
 
@@ -368,7 +371,12 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSaving}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isSaving}>

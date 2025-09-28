@@ -30,6 +30,7 @@ import ImportModal from "./ImportModal";
 import ViewDetailsModal from "./ViewDetailsModal";
 import { useToast } from "../contexts/ToastContext";
 import { useAuth } from "../contexts/AuthContext";
+import { format } from "date-fns";
 import ConfirmationDialog from "./ConfirmationDialog";
 import {
   Table,
@@ -92,29 +93,45 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
       } else {
         showToast("All assets imported successfully", "success");
       }
-    } catch {
-      showToast("Error importing assets", "error");
+    } catch (error) {
+      console.error("Import error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+      showToast(`Error importing assets: ${errorMessage}`, "error");
     }
   };
 
-  const assetSampleData = `assetTag,serialNumber,type,brand,model,specifications,purchaseDate,warrantyExpiry,vendor,assignedUser,department,status,location,notes
-AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-14,Dell Inc.,John Doe,Engineering,in-use,Building A,Room 101`;
+  const assetSampleData = `serialNumber,type,computeType,peripheralType,networkType,brand,model,specifications,warrantyExpiry,vendor,assignedUser,department,status,location,notes,deployedDate,imeiNumber,screenSize,resolution,connectionType,firmwareVersion,ipAddress,macAddress,numberOfPorts,powerSupply,serverRole,installedApplications
+SN-001,laptop,,,,"Dell","XPS 15","i7, 16GB RAM, 512GB SSD",2026-01-14,"Dell Inc.","John Doe","Engineering","in-use","Building A","Room 101","2025-01-15","","","","","","","","","","","",""
+SN-002,desktop,,,,"HP","EliteDesk 800","i5, 8GB RAM, 256GB SSD",2026-02-14,"HP Inc.","Jane Smith","Marketing","in-use","Building B","Room 205","2025-01-20","","","","","","","","","","","",""
+SN-003,mobile,,,,"Apple","iPhone 15","128GB, 5G",2026-03-14,"Apple Inc.","Mike Johnson","Sales","in-use","Building A","Room 150","2025-02-01","123456789012345","","","","","","","","","","","",""
+SN-004,printer,,,,"Canon","PIXMA TR8620","All-in-One, Wireless",2026-04-14,"Canon Inc.","Sarah Wilson","HR","in-use","Building C","Room 301","2025-02-15","","","","","","","","","","","",""
+SN-005,scanner,,,,"Epson","WorkForce ES-400","Document Scanner",2026-05-14,"Epson Inc.","David Brown","Finance","in-use","Building B","Room 180","2025-03-01","","","","","","","","","","","",""
+SN-006,monitor,,,,"Samsung","27-inch 4K","3840x2160, USB-C",2026-06-14,"Samsung Inc.","Lisa Davis","IT","in-use","Building A","Room 101","2025-03-15","","27","3840x2160","USB-C","","","","","","","","",""
+SN-007,server,,,,"Dell","PowerEdge R750","Xeon, 32GB RAM, 1TB SSD",2026-07-14,"Dell Inc.","Tom Wilson","IT","in-use","Data Center","Rack 1","2025-04-01","","","","","","","","","","750W","Database Server","Windows Server 2022"
+SN-008,router,,,,"Cisco","ISR 4331","Gigabit Ethernet",2026-08-14,"Cisco Inc.","Network Admin","IT","in-use","Network Closet","Rack 2","2025-04-15","","","","","16.12.04","192.168.1.1","00:1A:2B:3C:4D:5E","4","","","",""
+SN-009,switch,,,,"Netgear","GS108T","8-Port Gigabit",2026-09-14,"Netgear Inc.","Network Admin","IT","in-use","Network Closet","Rack 2","2025-05-01","","","","","","","","","8","","","",""`;
 
   const assetInstructions = [
-    "The CSV file must have the following columns: assetTag, serialNumber, type, brand, model, specifications, purchaseDate, warrantyExpiry, vendor, assignedUser, department, status, location, notes",
-    "The type must be one of: laptop, desktop, printer, server, router, switch, mobile, peripheral",
-    "The status must be one of: in-use, spare, repair, retired",
-    "Dates can be in any format (MM/DD/YYYY, YYYY-MM-DD, etc.) and will be automatically converted to 'October 15th, 2025' format.",
+    "The CSV file must include all columns shown in the sample. Leave fields empty if not applicable.",
+    "Asset types: laptop, desktop, mobile, printer, scanner, monitor, server, router, switch",
+    "For compute types (laptop, desktop, mobile): use computeType field",
+    "For peripheral types (printer, scanner, monitor): use peripheralType field",
+    "For network types (router, switch): use networkType field",
+    "Status must be one of: in-use, spare, repair, retired",
+    "Dates can be in any format (MM/DD/YYYY, YYYY-MM-DD, etc.) and will be automatically converted",
+    "Asset tags will be auto-generated based on type and sequence",
   ];
 
   const expectedAssetHeaders = [
-    "assetTag",
     "serialNumber",
     "type",
+    "computeType",
+    "peripheralType",
+    "networkType",
     "brand",
     "model",
     "specifications",
-    "purchaseDate",
     "warrantyExpiry",
     "vendor",
     "assignedUser",
@@ -122,6 +139,18 @@ AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-1
     "status",
     "location",
     "notes",
+    "deployedDate",
+    "imeiNumber",
+    "screenSize",
+    "resolution",
+    "connectionType",
+    "firmwareVersion",
+    "ipAddress",
+    "macAddress",
+    "numberOfPorts",
+    "powerSupply",
+    "serverRole",
+    "installedApplications",
   ];
 
   const getAssetIcon = (type: string) => {
@@ -317,7 +346,18 @@ AST-001,SN-001,laptop,Dell,XPS 15,"i7, 16GB RAM, 512GB SSD",2023-01-15,2026-01-1
                           : ""
                       }`}
                     >
-                      {asset.warrantyExpiry}
+                      {asset.warrantyExpiry
+                        ? (() => {
+                            try {
+                              const date = new Date(asset.warrantyExpiry);
+                              return isNaN(date.getTime())
+                                ? asset.warrantyExpiry
+                                : format(date, "PPP");
+                            } catch {
+                              return asset.warrantyExpiry;
+                            }
+                          })()
+                        : "N/A"}
                     </div>
                     {isWarrantyExpiring(asset.warrantyExpiry) && (
                       <div className="text-xs text-amber-600">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import type {
   License,
@@ -397,7 +396,12 @@ const LicenseModal: React.FC<LicenseModalProps> = ({
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSaving}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isSaving}>
