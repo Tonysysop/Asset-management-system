@@ -231,6 +231,7 @@ Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26
                 <TableHead onClick={() => handleSort("quantity")}>
                   Quantity
                 </TableHead>
+                <TableHead>Assigned Users</TableHead>
                 <TableHead onClick={() => handleSort("status")}>
                   Status
                 </TableHead>
@@ -270,6 +271,27 @@ Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26
                     </div>
                   </TableCell>
                   <TableCell>{receivable.quantity}</TableCell>
+                  <TableCell>
+                    <div>
+                      {receivable.assignedUsers &&
+                      receivable.assignedUsers.length > 0
+                        ? `${receivable.assignedUsers.length} user${
+                            receivable.assignedUsers.length > 1 ? "s" : ""
+                          }`
+                        : "No users assigned"}
+                    </div>
+                    {receivable.assignedUsers &&
+                      receivable.assignedUsers.length > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          {receivable.assignedUsers
+                            .slice(0, 2)
+                            .map((user) => user.name)
+                            .join(", ")}
+                          {receivable.assignedUsers.length > 2 &&
+                            ` +${receivable.assignedUsers.length - 2} more`}
+                        </div>
+                      )}
+                  </TableCell>
                   <TableCell>
                     <span
                       className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(

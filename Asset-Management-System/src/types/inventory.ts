@@ -67,6 +67,7 @@ export interface Receivable {
   notes: string;
   status: ReceivableStatus;
   receivedDate?: string;
+  assignedUsers?: LicenseUser[];
 }
 
 export interface License {
