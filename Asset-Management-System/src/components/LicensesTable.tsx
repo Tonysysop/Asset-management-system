@@ -178,23 +178,24 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="p-4 flex justify-end space-x-4">
-        <button
-          onClick={() => onAdd()}
-          className="flex items-center px-4 py-2 bg-bua-red text-white rounded-md hover:bg-bua-dark-red"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add License
-        </button>
-        <button
-          onClick={() => setIsImportModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-bua-red text-white rounded-md hover:bg-bua-dark-red"
-        >
-          <Upload className="w-4 h-4 mr-2" />
-          Import CSV
-        </button>
-        ˆ
-      </div>
+      {userRole === "admin" && (
+        <div className="p-4 flex justify-end space-x-4">
+          <button
+            onClick={() => onAdd()}
+            className="flex items-center px-4 py-2 bg-bua-red text-white rounded-md hover:bg-bua-dark-red"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add License
+          </button>
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-bua-red text-white rounded-md hover:bg-bua-dark-red"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Import CSV
+          </button>
+        </div>
+      )}
       <ImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
@@ -323,18 +324,30 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent>
+                      <DropdownMenuContent
+                        onCloseAutoFocus={(e) => {
+                          e.preventDefault();
+                        }}
+                      >
                         <DropdownMenuItem>
                           <ViewDetailsModal
                             item={license}
                             title="License Details"
                           />
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onEdit(license)}>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.preventDefault();
+                            onEdit(license);
+                          }}
+                        >
                           <Edit className="w-4 h-4 mr-2" /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => onDelete(license.id)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            onDelete(license.id);
+                          }}
                           className="text-red-600"
                         >
                           <Trash2 className="w-4 h-4 mr-2" /> Delete

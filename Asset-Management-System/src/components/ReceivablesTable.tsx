@@ -4,16 +4,10 @@ import {
   Edit,
   Trash2,
   ArrowRight,
-  Monitor,
-  Laptop,
-  Printer,
-  Server,
-  Router,
-  Smartphone,
-  HardDrive,
   Upload,
   Plus,
   MoreVertical,
+  UserPlus,
 } from "lucide-react";
 import { addReceivables } from "../services/receivableService";
 import ImportModal from "./ImportModal";
@@ -49,7 +43,7 @@ interface ReceivablesTableProps {
   userRole: UserRole;
   onEdit: (receivable: Receivable) => void;
   onDelete: (id: string) => void;
-  onDeploy: (receivable: Receivable) => void;
+  onAssign: (receivable: Receivable) => void;
   onImport: () => void;
   onAdd: () => void;
 }
@@ -58,7 +52,7 @@ const ReceivablesTable: React.FC<ReceivablesTableProps> = ({
   userRole,
   onEdit,
   onDelete,
-  onDeploy,
+  onAssign,
   onImport,
   onAdd,
 }) => {
@@ -80,23 +74,20 @@ const ReceivablesTable: React.FC<ReceivablesTableProps> = ({
     }
   };
 
-  const receivableSampleData = `itemName,category,brand,description,serialNumber,colour,supplierName,purchaseDate,quantity,warranty,notes,status
-Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26,1,1 Year,New laptop for design team,pending`;
+  const receivableSampleData = `itemName,brand,description,serialNumber,supplierName,purchaseDate,quantity,warranty,notes,status
+Laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Apple Inc.,2023-10-26,1,1 Year,New laptop for design team,pending`;
 
   const receivableInstructions = [
-    "The CSV file must have the following columns: itemName, category, brand, description, serialNumber, colour, supplierName, purchaseDate, quantity, warranty, notes, status",
-    "The category must be one of: laptop, desktop, printer, server, router, switch, mobile, peripheral",
+    "The CSV file must have the following columns: itemName, brand, description, serialNumber, supplierName, purchaseDate, quantity, warranty, notes, status",
     "The status must be one of: pending, received, deployed",
     "Dates can be in any format (MM/DD/YYYY, YYYY-MM-DD, etc.) and will be automatically converted to 'October 15th, 2025' format.",
   ];
 
   const expectedReceivableHeaders = [
     "itemName",
-    "category",
     "brand",
     "description",
     "serialNumber",
-    "colour",
     "supplierName",
     "purchaseDate",
     "quantity",
@@ -104,25 +95,6 @@ Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26
     "notes",
     "status",
   ];
-
-  const getAssetIcon = (type: string) => {
-    switch (type) {
-      case "laptop":
-        return <Laptop className="w-4 h-4" />;
-      case "desktop":
-        return <Monitor className="w-4 h-4" />;
-      case "printer":
-        return <Printer className="w-4 h-4" />;
-      case "server":
-        return <Server className="w-4 h-4" />;
-      case "router":
-        return <Router className="w-4 h-4" />;
-      case "mobile":
-        return <Smartphone className="w-4 h-4" />;
-      default:
-        return <HardDrive className="w-4 h-4" />;
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -174,22 +146,24 @@ Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="p-4 flex justify-end space-x-4">
-        <button
-          onClick={() => onAdd()}
-          className="flex items-center px-4 py-2 bg-bua-red text-white rounded-md hover:bg-bua-dark-red"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Receivable
-        </button>
-        <button
-          onClick={() => setIsImportModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-bua-red text-white rounded-md hover:bg-bua-dark-red"
-        >
-          <Upload className="w-4 h-4 mr-2" />
-          Import CSV
-        </button>
-      </div>
+      {userRole === "admin" && (
+        <div className="p-4 flex justify-end space-x-4">
+          <button
+            onClick={() => onAdd()}
+            className="flex items-center px-4 py-2 bg-bua-red text-white rounded-md hover:bg-bua-dark-red"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Receivable
+          </button>
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-bua-red text-white rounded-md hover:bg-bua-dark-red"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Import CSV
+          </button>
+        </div>
+      )}
       <ImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
@@ -203,13 +177,15 @@ Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26
         {paginatedReceivables.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500 mb-4">No receivables found.</p>
-            <button
-              onClick={() => onAdd()}
-              className="flex items-center mx-auto px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Receivable
-            </button>
+            {userRole === "admin" && (
+              <button
+                onClick={() => onAdd()}
+                className="flex items-center mx-auto px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Receivable
+              </button>
+            )}
           </div>
         ) : (
           <Table>
@@ -217,9 +193,6 @@ Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26
               <TableRow>
                 <TableHead onClick={() => handleSort("itemName")}>
                   Item Name
-                </TableHead>
-                <TableHead onClick={() => handleSort("category")}>
-                  Category
                 </TableHead>
                 <TableHead onClick={() => handleSort("brand")}>Brand</TableHead>
                 <TableHead onClick={() => handleSort("serialNumber")}>
@@ -249,18 +222,7 @@ Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center">
-                      <div className="mr-2">
-                        {getAssetIcon(receivable.category)}
-                      </div>
-                      <span className="capitalize">{receivable.category}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
                     <div>{receivable.brand}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {receivable.colour}
-                    </div>
                   </TableCell>
                   <TableCell>{receivable.serialNumber}</TableCell>
                   <TableCell>
@@ -287,7 +249,11 @@ Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent>
+                        <DropdownMenuContent
+                          onCloseAutoFocus={(e) => {
+                            e.preventDefault();
+                          }}
+                        >
                           <DropdownMenuItem>
                             <ViewDetailsModal
                               item={receivable}
@@ -296,16 +262,27 @@ Laptop,laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Space Gray,Apple Inc.,2023-10-26
                           </DropdownMenuItem>
                           {receivable.status === "received" && (
                             <DropdownMenuItem
-                              onClick={() => onDeploy(receivable)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                onAssign(receivable);
+                              }}
                             >
-                              <ArrowRight className="w-4 h-4 mr-2" /> Deploy
+                              <UserPlus className="w-4 h-4 mr-2" /> Assign
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem onClick={() => onEdit(receivable)}>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onEdit(receivable);
+                            }}
+                          >
                             <Edit className="w-4 h-4 mr-2" /> Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => onDelete(receivable.id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onDelete(receivable.id);
+                            }}
                             className="text-red-600"
                           >
                             <Trash2 className="w-4 h-4 mr-2" /> Delete

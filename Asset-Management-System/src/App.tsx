@@ -5,6 +5,7 @@ import type {
   AssetStatus,
   UserRole,
   Receivable,
+  ReceivableUser,
   License,
 } from "./types/inventory";
 import {
@@ -19,6 +20,7 @@ import LicensesTable from "./components/LicensesTable";
 import SearchAndFilter from "./components/SearchAndFilter";
 import AssetModal from "./components/AssetModal";
 import ReceivableModal from "./components/ReceivableModal";
+import ReceivableAssignmentModal from "./components/ReceivableAssignmentModal";
 import LicenseModal from "./components/LicenseModal";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
@@ -141,9 +143,14 @@ function AppContent() {
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
   const [isRedeploying, setIsRedeploying] = useState(false);
   const [isReceivableModalOpen, setIsReceivableModalOpen] = useState(false);
+  const [isReceivableAssignmentModalOpen, setIsReceivableAssignmentModalOpen] =
+    useState(false);
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | undefined>();
   const [editingReceivable, setEditingReceivable] = useState<
+    Receivable | undefined
+  >();
+  const [assigningReceivable, setAssigningReceivable] = useState<
     Receivable | undefined
   >();
   const [editingLicense, setEditingLicense] = useState<License | undefined>();
@@ -208,12 +215,9 @@ function AppContent() {
           .toLowerCase()
           .includes(searchTerm.toLowerCase());
 
-      const matchesType =
-        selectedType === "all" || receivable.category === selectedType;
-
-      return matchesSearch && matchesType;
+      return matchesSearch;
     });
-  }, [receivables, searchTerm, selectedType]);
+  }, [receivables, searchTerm]);
 
   // Filter licenses based on search
   const filteredLicenses = useMemo(() => {
@@ -342,43 +346,25 @@ function AppContent() {
     }
   };
 
-  const handleDeployReceivable = async (receivable: Receivable) => {
-    if (window.confirm("Deploy this receivable to active inventory?")) {
-      try {
-        // Create new asset from receivable
-        const newAssetData: Omit<Asset, "id"> = {
-          assetTag: `AUTO-${receivable.serialNumber}`,
-          serialNumber: receivable.serialNumber,
-          type: receivable.category,
-          brand: receivable.brand,
-          model: receivable.itemName,
-          specifications: receivable.description,
-          deployedDate: new Date().toISOString().split("T")[0],
-          warrantyExpiry: new Date(
-            new Date(receivable.purchaseDate).getTime() +
-              365 * 24 * 60 * 60 * 1000 * 3
-          )
-            .toISOString()
-            .split("T")[0], // 3 years default
-          vendor: receivable.supplierName,
-          assignedUser: "Unassigned",
-          department: "IT",
-          status: "spare",
-          location: "IT Storage",
-          notes: `Deployed from receivables: ${receivable.notes}`,
-        };
-        await addAsset(newAssetData, currentUser?.email || "Unknown User");
+  const handleAssignReceivable = (receivable: Receivable) => {
+    setAssigningReceivable(receivable);
+    setIsReceivableAssignmentModalOpen(true);
+  };
 
-        // Update receivable status to deployed
-        await updateReceivable(
-          receivable.id,
-          { status: "deployed" },
-          currentUser?.email || "Unknown User"
-        );
-        showToast("Receivable deployed successfully", "success");
-      } catch {
-        showToast("Error deploying receivable", "error");
-      }
+  const handleSaveReceivableAssignment = async (
+    receivableId: string,
+    assignedUsers: ReceivableUser[]
+  ) => {
+    try {
+      await updateReceivable(
+        receivableId,
+        { assignedUsers },
+        currentUser?.email || "Unknown User"
+      );
+      showToast("Receivable assignments updated successfully", "success");
+      fetchAllData();
+    } catch {
+      showToast("Error updating receivable assignments", "error");
     }
   };
 
@@ -621,7 +607,7 @@ function AppContent() {
               userRole={userRole}
               onEdit={handleEditReceivable}
               onDelete={handleDeleteReceivable}
-              onDeploy={handleDeployReceivable}
+              onAssign={handleAssignReceivable}
               onImport={handleImport}
               onAdd={handleAddReceivable}
             />
@@ -666,6 +652,13 @@ function AppContent() {
           onClose={() => setIsReceivableModalOpen(false)}
           onSave={handleSaveReceivable}
           receivable={editingReceivable}
+        />
+
+        <ReceivableAssignmentModal
+          isOpen={isReceivableAssignmentModalOpen}
+          onClose={() => setIsReceivableAssignmentModalOpen(false)}
+          onSave={handleSaveReceivableAssignment}
+          receivable={assigningReceivable}
         />
 
         <LicenseModal

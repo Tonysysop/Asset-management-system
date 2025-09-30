@@ -52,14 +52,21 @@ export interface RetrievedAsset extends Asset {
   retrieveReason?: string;
 }
 
+export interface ReceivableUser {
+  id: string;
+  name: string;
+  email: string;
+  department: string;
+  assignedDate: string;
+  quantityAssigned: number;
+}
+
 export interface Receivable {
   id: string;
   itemName: string;
-  category: AssetType;
   brand: string;
   description: string;
   serialNumber: string;
-  colour: string;
   supplierName: string;
   purchaseDate: string;
   quantity: number;
@@ -67,6 +74,7 @@ export interface Receivable {
   notes: string;
   status: ReceivableStatus;
   receivedDate?: string;
+  assignedUsers?: ReceivableUser[];
 }
 
 export interface License {

@@ -1,18 +1,29 @@
 import React, { useState, useEffect } from "react";
-import type {
-  Receivable,
-  AssetType,
-  ReceivableStatus,
-} from "../types/inventory";
-import { Calendar } from "lucide-react";
+import type { Receivable, ReceivableStatus } from "../types/inventory";
+import { CalendarIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { Textarea } from "./ui/textarea";
+import { Calendar } from "./ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { format } from "date-fns";
+import { cn } from "../lib/utils";
 
 interface ReceivableModalProps {
   isOpen: boolean;
@@ -27,15 +38,15 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({
   onSave,
   receivable,
 }) => {
-  const [formData, setFormData] = useState<Omit<Receivable, "id">>({
+  const [formData, setFormData] = useState<
+    Omit<Receivable, "id"> & { purchaseDate?: Date }
+  >({
     itemName: "",
-    category: "laptop",
     brand: "",
     description: "",
     serialNumber: "",
-    colour: "",
     supplierName: "",
-    purchaseDate: "",
+    purchaseDate: undefined,
     quantity: 1,
     warranty: "",
     notes: "",
@@ -49,13 +60,16 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({
     if (receivable) {
       setFormData({
         itemName: receivable.itemName,
-        category: receivable.category,
         brand: receivable.brand,
         description: receivable.description,
         serialNumber: receivable.serialNumber,
-        colour: receivable.colour,
         supplierName: receivable.supplierName,
-        purchaseDate: receivable.purchaseDate,
+        purchaseDate: receivable.purchaseDate
+          ? (() => {
+              const date = new Date(receivable.purchaseDate);
+              return isNaN(date.getTime()) ? undefined : date;
+            })()
+          : undefined,
         quantity: receivable.quantity,
         warranty: receivable.warranty,
         notes: receivable.notes,
@@ -65,13 +79,11 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({
     } else {
       setFormData({
         itemName: "",
-        category: "laptop",
         brand: "",
         description: "",
         serialNumber: "",
-        colour: "",
         supplierName: "",
-        purchaseDate: "",
+        purchaseDate: undefined,
         quantity: 1,
         warranty: "",
         notes: "",
@@ -106,7 +118,14 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({
     if (validateForm()) {
       setIsSaving(true);
       try {
-        await onSave(formData);
+        // Convert date back to string format for saving
+        const dataToSave = {
+          ...formData,
+          purchaseDate: formData.purchaseDate
+            ? formData.purchaseDate.toISOString().split("T")[0]
+            : "",
+        };
+        await onSave(dataToSave);
         onClose();
       } finally {
         setIsSaving(false);
@@ -129,17 +148,23 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({
     }
   };
 
-  const assetTypes: AssetType[] = [
-    "laptop",
-    "desktop",
-    "printer",
-    "server",
-    "router",
-    "switch",
-    "mobile",
-    "scanner",
-    "monitor",
-  ];
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const handleDateChange = (date: Date | undefined) => {
+    setFormData((prev) => ({ ...prev, purchaseDate: date }));
+    if (errors.purchaseDate) {
+      setErrors((prev) => ({ ...prev, purchaseDate: "" }));
+    }
+  };
+
   const receivableStatuses: ReceivableStatus[] = [
     "pending",
     "received",
@@ -148,229 +173,243 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>
             {receivable ? "Edit Receivable" : "Add New Receivable"}
           </DialogTitle>
+          <DialogDescription>
+            {receivable
+              ? "Update the details of this receivable item."
+              : "Add a new receivable item to the inventory system."}
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto p-1">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Item Name *
-              </label>
-              <input
-                type="text"
-                name="itemName"
-                value={formData.itemName}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.itemName ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.itemName && (
-                <p className="text-red-500 text-xs mt-1">{errors.itemName}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Category *
-              </label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                {assetTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Brand *
-              </label>
-              <input
-                type="text"
-                name="brand"
-                value={formData.brand}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.brand ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.brand && (
-                <p className="text-red-500 text-xs mt-1">{errors.brand}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Serial Number *
-              </label>
-              <input
-                type="text"
-                name="serialNumber"
-                value={formData.serialNumber}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.serialNumber ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.serialNumber && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.serialNumber}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Colour
-              </label>
-              <input
-                type="text"
-                name="colour"
-                value={formData.colour}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Supplier Name *
-              </label>
-              <input
-                type="text"
-                name="supplierName"
-                value={formData.supplierName}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.supplierName ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.supplierName && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.supplierName}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Purchase Date *
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  name="purchaseDate"
-                  value={formData.purchaseDate}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto space-y-4 p-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label
+                  htmlFor="itemName"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Item Name *
+                </Label>
+                <Input
+                  id="itemName"
+                  type="text"
+                  name="itemName"
+                  value={formData.itemName}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                    errors.purchaseDate ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={errors.itemName ? "border-red-500" : ""}
                 />
-                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                {errors.itemName && (
+                  <p className="text-red-500 text-xs mt-1">{errors.itemName}</p>
+                )}
               </div>
-              {errors.purchaseDate && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.purchaseDate}
-                </p>
-              )}
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Quantity *
-              </label>
-              <input
-                type="number"
-                name="quantity"
-                value={formData.quantity}
-                onChange={handleChange}
-                min="1"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.quantity ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.quantity && (
-                <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>
-              )}
-            </div>
+              <div>
+                <Label
+                  htmlFor="brand"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Brand *
+                </Label>
+                <Input
+                  id="brand"
+                  type="text"
+                  name="brand"
+                  value={formData.brand}
+                  onChange={handleChange}
+                  className={errors.brand ? "border-red-500" : ""}
+                />
+                {errors.brand && (
+                  <p className="text-red-500 text-xs mt-1">{errors.brand}</p>
+                )}
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Warranty
-              </label>
-              <input
-                type="text"
-                name="warranty"
-                value={formData.warranty}
-                onChange={handleChange}
-                placeholder="e.g., 3 years"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
+              <div>
+                <Label
+                  htmlFor="serialNumber"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Serial Number *
+                </Label>
+                <Input
+                  id="serialNumber"
+                  type="text"
+                  name="serialNumber"
+                  value={formData.serialNumber}
+                  onChange={handleChange}
+                  className={errors.serialNumber ? "border-red-500" : ""}
+                />
+                {errors.serialNumber && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.serialNumber}
+                  </p>
+                )}
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status *
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                {receivableStatuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status.toUpperCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div>
+                <Label
+                  htmlFor="supplierName"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Supplier Name *
+                </Label>
+                <Input
+                  id="supplierName"
+                  type="text"
+                  name="supplierName"
+                  value={formData.supplierName}
+                  onChange={handleChange}
+                  className={errors.supplierName ? "border-red-500" : ""}
+                />
+                {errors.supplierName && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.supplierName}
+                  </p>
+                )}
+              </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description *
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                rows={2}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.description ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.description && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.description}
-                </p>
-              )}
-            </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-700">
+                  Purchase Date *
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !formData.purchaseDate && "text-muted-foreground",
+                        errors.purchaseDate && "border-red-500"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formData.purchaseDate &&
+                      !isNaN(formData.purchaseDate.getTime())
+                        ? format(formData.purchaseDate, "PPP")
+                        : "Select date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={formData.purchaseDate}
+                      onSelect={handleDateChange}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.purchaseDate && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.purchaseDate}
+                  </p>
+                )}
+              </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notes
-              </label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
+              <div>
+                <Label
+                  htmlFor="quantity"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Quantity *
+                </Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  name="quantity"
+                  value={formData.quantity}
+                  onChange={handleChange}
+                  min="1"
+                  className={errors.quantity ? "border-red-500" : ""}
+                />
+                {errors.quantity && (
+                  <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>
+                )}
+              </div>
+
+              <div>
+                <Label
+                  htmlFor="warranty"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Warranty
+                </Label>
+                <Input
+                  id="warranty"
+                  type="text"
+                  name="warranty"
+                  value={formData.warranty}
+                  onChange={handleChange}
+                  placeholder="e.g., 3 years"
+                />
+              </div>
+
+              <div>
+                <Label
+                  htmlFor="status"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Status *
+                </Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => handleSelectChange("status", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {receivableStatuses.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="md:col-span-2">
+                <Label
+                  htmlFor="description"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Description *
+                </Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  rows={2}
+                  className={errors.description ? "border-red-500" : ""}
+                />
+                {errors.description && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.description}
+                  </p>
+                )}
+              </div>
+
+              <div className="md:col-span-2">
+                <Label
+                  htmlFor="notes"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Notes
+                </Label>
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  rows={3}
+                />
+              </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 mt-4">
             <Button
               type="button"
               variant="outline"

@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
@@ -168,6 +169,11 @@ const LicenseModal: React.FC<LicenseModalProps> = ({
           <DialogTitle>
             {license ? "Edit License" : "Add New License"}
           </DialogTitle>
+          <DialogDescription>
+            {license
+              ? "Update the details of this software license."
+              : "Add a new software license to the inventory system."}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto p-1">

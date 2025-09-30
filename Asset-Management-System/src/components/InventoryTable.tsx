@@ -232,7 +232,7 @@ SN-009,switch,,,,"Netgear","GS108T","8-Port Gigabit",2026-09-14,"Netgear Inc.","
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      {!isRetrievedView && (
+      {!isRetrievedView && userRole === "admin" && (
         <div className="p-4 flex justify-end space-x-4">
           <button
             type="button"
@@ -252,7 +252,7 @@ SN-009,switch,,,,"Netgear","GS108T","8-Port Gigabit",2026-09-14,"Netgear Inc.","
           </button>
         </div>
       )}
-      {!isRetrievedView && (
+      {!isRetrievedView && userRole === "admin" && (
         <ImportModal
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
@@ -373,32 +373,52 @@ SN-009,switch,,,,"Netgear","GS108T","8-Port Gigabit",2026-09-14,"Netgear Inc.","
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent>
+                        <DropdownMenuContent
+                          onCloseAutoFocus={(e) => {
+                            e.preventDefault();
+                          }}
+                        >
                           <DropdownMenuItem>
                             <ViewDetailsModal
                               item={asset}
                               title="Asset Details"
                             />
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onEdit(asset)}>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onEdit(asset);
+                            }}
+                          >
                             <Edit className="w-4 h-4 mr-2" /> Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => onDelete(asset.id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onDelete(asset.id);
+                            }}
                             className="text-red-600"
                           >
                             <Trash2 className="w-4 h-4 mr-2" /> Delete
                           </DropdownMenuItem>
                           {onRetrieve && !isRetrievedView && (
                             <DropdownMenuItem
-                              onClick={() => setAssetToRetrieve(asset)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setAssetToRetrieve(asset);
+                              }}
                             >
                               <ArchiveRestore className="w-4 h-4 mr-2" />{" "}
                               Retrieve
                             </DropdownMenuItem>
                           )}
                           {isRetrievedView && (
-                            <DropdownMenuItem onClick={() => onEdit(asset)}>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.preventDefault();
+                                onEdit(asset);
+                              }}
+                            >
                               <ArchiveRestore className="w-4 h-4 mr-2" />{" "}
                               Redeploy
                             </DropdownMenuItem>

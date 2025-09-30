@@ -18,13 +18,25 @@ import {
   Shield,
   Clock,
   AlertCircle,
+  Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import type { ReceivableUser, Receivable } from "../types/inventory";
 
 interface ViewDetailsModalProps {
   item: unknown;
   title: string;
 }
+
+// Type guard to check if item has assignedUsers
+const hasAssignedUsers = (item: unknown): item is Receivable => {
+  return (
+    typeof item === "object" &&
+    item !== null &&
+    "assignedUsers" in item &&
+    Array.isArray((item as Record<string, unknown>).assignedUsers)
+  );
+};
 
 // Helper function to format field names
 const formatFieldName = (key: string): string => {
@@ -271,6 +283,75 @@ const isFieldApplicable = (
   }
 };
 
+// Helper function to render assigned users
+const renderAssignedUsers = (assignedUsers: ReceivableUser[]) => {
+  if (!assignedUsers || assignedUsers.length === 0) {
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+        <div className="flex-shrink-0 mt-0.5 text-muted-foreground">
+          <Users className="w-4 h-4" />
+        </div>
+        <div className="flex-1">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+            Assigned Users
+          </p>
+          <p className="text-sm text-foreground">No users assigned yet</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalAssignedQuantity = assignedUsers.reduce(
+    (sum, user) => sum + user.quantityAssigned,
+    0
+  );
+
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
+      <div className="flex-shrink-0 mt-0.5 text-muted-foreground">
+        <Users className="w-4 h-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Assigned Users
+          </p>
+          <Badge variant="secondary" className="text-xs px-2 py-0.5">
+            {totalAssignedQuantity} items assigned
+          </Badge>
+        </div>
+        <div className="space-y-2">
+          {assignedUsers.map((user) => (
+            <div
+              key={user.id}
+              className="p-2 bg-background rounded border border-border/50"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm font-medium text-foreground">
+                  {user.name}
+                </p>
+                <Badge variant="outline" className="text-xs">
+                  Qty: {user.quantityAssigned}
+                </Badge>
+              </div>
+              <div className="text-xs text-muted-foreground space-y-0.5">
+                <p>{user.email}</p>
+                <div className="flex items-center gap-2">
+                  <span>{user.department}</span>
+                  <span>•</span>
+                  <span>
+                    Assigned: {new Date(user.assignedDate).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Helper function to categorize fields
 const categorizeFields = (item: Record<string, unknown>) => {
   const assetType = String(item.type || "").toLowerCase();
@@ -284,6 +365,9 @@ const categorizeFields = (item: Record<string, unknown>) => {
   };
 
   Object.entries(item).forEach(([key, value]) => {
+    // Skip assignedUsers as it's handled specially
+    if (key === "assignedUsers") return;
+
     // Skip non-applicable fields
     if (!isFieldApplicable(key, assetType, value)) return;
 
@@ -451,6 +535,20 @@ const ViewDetailsModal: React.FC<ViewDetailsModalProps> = ({ item, title }) => {
             categorizedFields.assignment,
             <User className="w-4 h-4 text-bua-red" />
           )}
+
+          {/* Special rendering for assigned users in receivables */}
+          {hasAssignedUsers(item) && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 pb-2 border-b border-border">
+                <Users className="w-4 h-4 text-bua-red" />
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                  Assigned Users
+                </h3>
+              </div>
+              {renderAssignedUsers(item.assignedUsers || [])}
+            </div>
+          )}
+
           {renderFieldGroup(
             "Important Dates",
             categorizedFields.dates,

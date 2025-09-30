@@ -65,17 +65,17 @@ export const exportReceivablesToCSV = (
 ) => {
   const headers = [
     "Item Name",
-    "Category",
     "Brand",
     "Description",
     "Serial Number",
-    "Colour",
     "Supplier Name",
     "Purchase Date",
     "Quantity",
     "Warranty",
     "Status",
     "Notes",
+    "Assigned Users Count",
+    "Total Assigned Quantity",
   ];
 
   const csvContent = [
@@ -83,17 +83,20 @@ export const exportReceivablesToCSV = (
     ...receivables.map((receivable) =>
       [
         `"${receivable.itemName}"`,
-        receivable.category,
         `"${receivable.brand}"`,
         `"${receivable.description}"`,
         receivable.serialNumber,
-        receivable.colour,
         `"${receivable.supplierName}"`,
         receivable.purchaseDate,
         receivable.quantity,
         `"${receivable.warranty}"`,
         receivable.status,
         `"${receivable.notes}"`,
+        receivable.assignedUsers?.length || 0,
+        receivable.assignedUsers?.reduce(
+          (sum, user) => sum + user.quantityAssigned,
+          0
+        ) || 0,
       ].join(",")
     ),
   ].join("\n");
