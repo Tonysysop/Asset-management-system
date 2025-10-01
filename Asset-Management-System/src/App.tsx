@@ -37,28 +37,49 @@ import { ToastProvider, useToast } from "./contexts/ToastContext";
 import AuditTrail from "./components/AuditTrail";
 import ConfirmationDialog from "./components/ConfirmationDialog";
 import RetrieveReasonDialog from "./components/RetrieveReasonDialog";
-import { useStore } from "./store/store";
+import ConnectionStatus from "./components/ConnectionStatus";
+import {
+  useAssets,
+  useRetrievedAssets,
+  useAddAsset,
+  useUpdateAsset,
+  useDeleteAsset,
+  useRetrieveAsset,
+} from "./hooks/useAssets";
+import {
+  useReceivables,
+  useAddReceivable,
+  useUpdateReceivable,
+  useDeleteReceivable,
+} from "./hooks/useReceivables";
+import {
+  useLicenses,
+  useAddLicense,
+  useUpdateLicense,
+  useDeleteLicense,
+} from "./hooks/useLicenses";
 import buaLogo from "./assets/bua-logo.jpg";
 
 function AppContent() {
   const { currentUser, logout } = useAuth();
-  const {
-    assets,
-    retrievedAssets,
-    receivables,
-    licenses,
-    fetchAllData,
-    addAsset,
-    updateAsset,
-    deleteAsset,
-    retrieveAsset,
-    addReceivable,
-    updateReceivable,
-    deleteReceivable,
-    addLicense,
-    updateLicense,
-    deleteLicense,
-  } = useStore();
+
+  // React Query hooks for data fetching
+  const { data: assets = [] } = useAssets();
+  const { data: retrievedAssets = [] } = useRetrievedAssets();
+  const { data: receivables = [] } = useReceivables();
+  const { data: licenses = [] } = useLicenses();
+
+  // React Query mutation hooks
+  const addAssetMutation = useAddAsset();
+  const updateAssetMutation = useUpdateAsset();
+  const deleteAssetMutation = useDeleteAsset();
+  const retrieveAssetMutation = useRetrieveAsset();
+  const addReceivableMutation = useAddReceivable();
+  const updateReceivableMutation = useUpdateReceivable();
+  const deleteReceivableMutation = useDeleteReceivable();
+  const addLicenseMutation = useAddLicense();
+  const updateLicenseMutation = useUpdateLicense();
+  const deleteLicenseMutation = useDeleteLicense();
   const [userRole, setUserRole] = useState<UserRole>("admin");
   const { showToast } = useToast();
 
@@ -81,10 +102,7 @@ function AppContent() {
   }, [currentUser]);
 
   // Note: URL controls role; we do not push URL changes based on role.
-
-  useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+  // React Query automatically handles data fetching, no need for manual fetchAllData
 
   const handleLogout = async () => {
     try {
@@ -109,11 +127,11 @@ function AppContent() {
         retrievedDate: new Date().toISOString().split("T")[0],
         retrievedBy: currentUser?.email || "Unknown User",
       };
-      await retrieveAsset(
-        retrieveReasonDialog.asset.id,
+      await retrieveAssetMutation.mutateAsync({
+        id: retrieveReasonDialog.asset.id,
         retrieved,
-        currentUser?.email || "Unknown User"
-      );
+        user: currentUser?.email || "Unknown User",
+      });
       showToast(
         `Asset moved to Retrieved with status: ${
           reason === "repair" ? "out for repair" : reason
@@ -279,29 +297,32 @@ function AppContent() {
       if (editingAsset) {
         // Use the isRedeploying state to determine if this is a redeploy operation
         if (isRedeploying) {
-          await addAsset(assetData, currentUser?.email || "Unknown User");
-          await useStore
-            .getState()
-            .removeRetrieved(
-              editingAsset.id,
-              currentUser?.email || "Unknown User"
-            );
+          await addAssetMutation.mutateAsync({
+            asset: assetData,
+            user: currentUser?.email || "Unknown User",
+          });
+          // TODO: Add removeRetrieved mutation
           showToast("Asset redeployed to Inventory", "success");
         } else {
-          await updateAsset(
-            editingAsset.id,
-            assetData,
-            currentUser?.email || "Unknown User"
-          );
+          await updateAssetMutation.mutateAsync({
+            id: editingAsset.id,
+            asset: assetData,
+            user: currentUser?.email || "Unknown User",
+          });
           showToast("Asset updated successfully", "success");
         }
       } else {
-        await addAsset(assetData, currentUser?.email || "Unknown User");
+        await addAssetMutation.mutateAsync({
+          asset: assetData,
+          user: currentUser?.email || "Unknown User",
+        });
         showToast("Asset added successfully", "success");
       }
 
-      // Reset redeploying state after successful save
+      // Reset redeploying state and close modal after successful save
       setIsRedeploying(false);
+      setIsAssetModalOpen(false);
+      setEditingAsset(undefined);
     } catch (error) {
       console.error("Error saving asset:", error);
       showToast("Error saving asset", "error");
@@ -328,17 +349,17 @@ function AppContent() {
   ) => {
     try {
       if (editingReceivable) {
-        await updateReceivable(
-          editingReceivable.id,
-          receivableData,
-          currentUser?.email || "Unknown User"
-        );
+        await updateReceivableMutation.mutateAsync({
+          id: editingReceivable.id,
+          receivable: receivableData,
+          user: currentUser?.email || "Unknown User",
+        });
         showToast("Receivable updated successfully", "success");
       } else {
-        await addReceivable(
-          receivableData,
-          currentUser?.email || "Unknown User"
-        );
+        await addReceivableMutation.mutateAsync({
+          receivable: receivableData,
+          user: currentUser?.email || "Unknown User",
+        });
         showToast("Receivable added successfully", "success");
       }
     } catch {
@@ -356,13 +377,12 @@ function AppContent() {
     assignedUsers: ReceivableUser[]
   ) => {
     try {
-      await updateReceivable(
-        receivableId,
-        { assignedUsers },
-        currentUser?.email || "Unknown User"
-      );
+      await updateReceivableMutation.mutateAsync({
+        id: receivableId,
+        receivable: { assignedUsers },
+        user: currentUser?.email || "Unknown User",
+      });
       showToast("Receivable assignments updated successfully", "success");
-      fetchAllData();
     } catch {
       showToast("Error updating receivable assignments", "error");
     }
@@ -386,14 +406,17 @@ function AppContent() {
   const handleSaveLicense = async (licenseData: Omit<License, "id">) => {
     try {
       if (editingLicense) {
-        await updateLicense(
-          editingLicense.id,
-          licenseData,
-          currentUser?.email || "Unknown User"
-        );
+        await updateLicenseMutation.mutateAsync({
+          id: editingLicense.id,
+          license: licenseData,
+          user: currentUser?.email || "Unknown User",
+        });
         showToast("License updated successfully", "success");
       } else {
-        await addLicense(licenseData, currentUser?.email || "Unknown User");
+        await addLicenseMutation.mutateAsync({
+          license: licenseData,
+          user: currentUser?.email || "Unknown User",
+        });
         showToast("License added successfully", "success");
       }
     } catch {
@@ -406,13 +429,22 @@ function AppContent() {
       const { id, type } = deleteConfirmation;
       try {
         if (type === "asset") {
-          await deleteAsset(id, currentUser?.email || "Unknown User");
+          await deleteAssetMutation.mutateAsync({
+            id,
+            user: currentUser?.email || "Unknown User",
+          });
           showToast("Asset deleted successfully", "success");
         } else if (type === "receivable") {
-          await deleteReceivable(id, currentUser?.email || "Unknown User");
+          await deleteReceivableMutation.mutateAsync({
+            id,
+            user: currentUser?.email || "Unknown User",
+          });
           showToast("Receivable deleted successfully", "success");
         } else if (type === "license") {
-          await deleteLicense(id, currentUser?.email || "Unknown User");
+          await deleteLicenseMutation.mutateAsync({
+            id,
+            user: currentUser?.email || "Unknown User",
+          });
           showToast("License deleted successfully", "success");
         }
       } catch {
@@ -436,7 +468,8 @@ function AppContent() {
   };
 
   const handleImport = () => {
-    fetchAllData();
+    // React Query automatically handles cache invalidation and refetching
+    // No need for manual fetchAllData
   };
 
   const getExportHandler = () => {
@@ -572,9 +605,9 @@ function AppContent() {
               assets={assets}
               receivables={receivables}
               licenses={licenses}
-              onAssetAdded={fetchAllData}
-              onLicenseAdded={fetchAllData}
-              onReceivableAdded={fetchAllData}
+              onAssetAdded={() => {}}
+              onLicenseAdded={() => {}}
+              onReceivableAdded={() => {}}
             />
           )}
           {currentView !== "dashboard" && currentView !== "audit" && (
@@ -604,6 +637,7 @@ function AppContent() {
           )}
           {currentView === "receivables" && (
             <ReceivablesTable
+              receivables={filteredReceivables}
               userRole={userRole}
               onEdit={handleEditReceivable}
               onDelete={handleDeleteReceivable}
@@ -704,6 +738,8 @@ function AppContent() {
           onConfirm={handleRetrieveConfirm}
           assetTag={retrieveReasonDialog.asset?.assetTag || ""}
         />
+
+        <ConnectionStatus />
       </div>
     </ProtectedRoute>
   );

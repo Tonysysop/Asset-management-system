@@ -1,19 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import type { Receivable, UserRole } from "../types/inventory";
-import {
-  Edit,
-  Trash2,
-  ArrowRight,
-  Upload,
-  Plus,
-  MoreVertical,
-  UserPlus,
-} from "lucide-react";
-import { addReceivables } from "../services/receivableService";
+import { Upload, Plus } from "lucide-react";
+import ReceivableTableRow from "./ReceivableTableRow";
+import { useAddReceivables } from "../hooks/useReceivables";
 import ImportModal from "./ImportModal";
-import ViewDetailsModal from "./ViewDetailsModal";
 import { useToast } from "../contexts/ToastContext";
-import { useStore } from "../store/store";
+import { useAuth } from "../contexts/AuthContext";
 import {
   Pagination,
   PaginationContent,
@@ -23,23 +15,10 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "./ui/pagination";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "./ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-import { Button } from "./ui/button";
+import { Table, TableHeader, TableBody, TableRow, TableHead } from "./ui/table";
 
 interface ReceivablesTableProps {
+  receivables: Receivable[];
   userRole: UserRole;
   onEdit: (receivable: Receivable) => void;
   onDelete: (id: string) => void;
@@ -49,6 +28,7 @@ interface ReceivablesTableProps {
 }
 
 const ReceivablesTable: React.FC<ReceivablesTableProps> = ({
+  receivables,
   userRole,
   onEdit,
   onDelete,
@@ -56,23 +36,30 @@ const ReceivablesTable: React.FC<ReceivablesTableProps> = ({
   onImport,
   onAdd,
 }) => {
-  const receivables = useStore((state) => state.receivables);
   const [sortField, setSortField] = useState<keyof Receivable>("itemName");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const { showToast } = useToast();
+  const { currentUser } = useAuth();
+  const addReceivablesMutation = useAddReceivables();
 
-  const handleFileImport = async (data: Omit<Receivable, "id">[]) => {
-    try {
-      await addReceivables(data);
-      onImport();
-      showToast("Receivables imported successfully", "success");
-    } catch {
-      showToast("Error importing receivables", "error");
-    }
-  };
+  const handleFileImport = useCallback(
+    async (data: unknown[]) => {
+      try {
+        await addReceivablesMutation.mutateAsync({
+          receivables: data as Omit<Receivable, "id">[],
+          user: currentUser?.email || "unknown",
+        });
+        onImport();
+        showToast("Receivables imported successfully", "success");
+      } catch {
+        showToast("Error importing receivables", "error");
+      }
+    },
+    [addReceivablesMutation, currentUser?.email, onImport, showToast]
+  );
 
   const receivableSampleData = `itemName,brand,description,serialNumber,supplierName,purchaseDate,quantity,warranty,notes,status
 Laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Apple Inc.,2023-10-26,1,1 Year,New laptop for design team,pending`;
@@ -96,27 +83,39 @@ Laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Apple Inc.,2023-10-26,1,1 Year,New lapt
     "status",
   ];
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "received":
-        return "bg-green-100 text-green-800";
-      case "pending":
-        return "bg-amber-100 text-amber-800";
-      case "deployed":
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+  // Memoized handlers to prevent unnecessary re-renders
+  const handleEdit = useCallback(
+    (receivable: Receivable) => {
+      onEdit(receivable);
+    },
+    [onEdit]
+  );
 
-  const handleSort = (field: keyof Receivable) => {
-    if (field === sortField) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
+  const handleDelete = useCallback(
+    (id: string) => {
+      onDelete(id);
+    },
+    [onDelete]
+  );
+
+  const handleAssign = useCallback(
+    (receivable: Receivable) => {
+      onAssign(receivable);
+    },
+    [onAssign]
+  );
+
+  const handleSort = useCallback(
+    (field: keyof Receivable) => {
+      if (field === sortField) {
+        setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      } else {
+        setSortField(field);
+        setSortDirection("asc");
+      }
+    },
+    [sortField, sortDirection]
+  );
 
   const sortedReceivables = useMemo(() => {
     return [...receivables].sort((a, b) => {
@@ -214,92 +213,14 @@ Laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Apple Inc.,2023-10-26,1,1 Year,New lapt
             </TableHeader>
             <TableBody>
               {paginatedReceivables.map((receivable) => (
-                <TableRow key={receivable.id}>
-                  <TableCell>
-                    <div className="font-medium">{receivable.itemName}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {receivable.description}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>{receivable.brand}</div>
-                  </TableCell>
-                  <TableCell>{receivable.serialNumber}</TableCell>
-                  <TableCell>
-                    <div>{receivable.supplierName}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Purchased: {receivable.purchaseDate}
-                    </div>
-                  </TableCell>
-                  <TableCell>{receivable.quantity}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
-                        receivable.status
-                      )}`}
-                    >
-                      {receivable.status.toUpperCase()}
-                    </span>
-                  </TableCell>
-                  {userRole === "admin" && (
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          onCloseAutoFocus={(e) => {
-                            e.preventDefault();
-                          }}
-                        >
-                          <DropdownMenuItem>
-                            <ViewDetailsModal
-                              item={receivable}
-                              title="Receivable Details"
-                            />
-                          </DropdownMenuItem>
-                          {receivable.status === "received" && (
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.preventDefault();
-                                onAssign(receivable);
-                              }}
-                            >
-                              <UserPlus className="w-4 h-4 mr-2" /> Assign
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.preventDefault();
-                              onEdit(receivable);
-                            }}
-                          >
-                            <Edit className="w-4 h-4 mr-2" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.preventDefault();
-                              onDelete(receivable.id);
-                            }}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  )}
-                  {userRole === "auditor" && (
-                    <TableCell>
-                      <ViewDetailsModal
-                        item={receivable}
-                        title="Receivable Details"
-                      />
-                    </TableCell>
-                  )}
-                </TableRow>
+                <ReceivableTableRow
+                  key={receivable.id}
+                  receivable={receivable}
+                  userRole={userRole as "admin" | "auditor"}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onAssign={handleAssign}
+                />
               ))}
             </TableBody>
           </Table>

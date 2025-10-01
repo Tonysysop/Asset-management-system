@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, Save, X } from "lucide-react";
+import { CalendarIcon, Save, X, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
@@ -57,6 +57,7 @@ interface AssetFormData {
   location: string;
   specifications: string;
   description: string;
+  computerName?: string;
 
   // Monitor specific fields
   screenSize?: string;
@@ -106,6 +107,7 @@ const initialFormData: AssetFormData = {
   location: "",
   specifications: "",
   description: "",
+  computerName: "",
 
   // Monitor specific fields
   screenSize: "",
@@ -185,7 +187,7 @@ const serverRoles = [
   { value: "print-server", label: "Print Server" },
 ];
 
-export function AssetFormModal({
+export const AssetFormModal = memo(function AssetFormModal({
   isOpen,
   onClose,
   onSave,
@@ -193,6 +195,7 @@ export function AssetFormModal({
   isRedeploying = false,
 }: AssetFormModalProps) {
   const [formData, setFormData] = useState<AssetFormData>(initialFormData);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   // Populate form when editing an asset
@@ -252,31 +255,32 @@ export function AssetFormModal({
         location: asset.location || "",
         specifications: asset.specifications || "",
         description: asset.notes || "",
+        computerName: asset.computerName || "",
         // Monitor specific fields
-        screenSize: "",
-        resolution: "",
-        connectionType: "",
+        screenSize: asset.screenSize || "",
+        resolution: asset.resolution || "",
+        connectionType: asset.connectionType || "",
         // Network Asset specific fields
-        firmwareVersion: "",
-        ipAddress: "",
-        macAddress: "",
-        numberOfPorts: "",
-        rackPosition: "",
-        configBackupLocation: "",
-        uplinkDownlinkInfo: "",
-        poeSupport: "",
-        stackClusterMembership: "",
+        firmwareVersion: asset.firmwareVersion || "",
+        ipAddress: asset.ipAddress || "",
+        macAddress: asset.macAddress || "",
+        numberOfPorts: asset.numberOfPorts || "",
+        rackPosition: asset.rackPosition || "",
+        configBackupLocation: asset.configBackupLocation || "",
+        uplinkDownlinkInfo: asset.uplinkDownlinkInfo || "",
+        poeSupport: asset.poeSupport || "",
+        stackClusterMembership: asset.stackClusterMembership || "",
         // Server specific fields
-        hostname: "",
-        processor: "",
-        ramSize: "",
-        storage: "",
-        operatingSystem: "",
-        productionIpAddress: "",
-        managementMacAddress: "",
-        powerSupply: "",
-        serverRole: "",
-        installedApplications: "",
+        hostname: asset.hostname || "",
+        processor: asset.processor || "",
+        ramSize: asset.ramSize || "",
+        storage: asset.storage || "",
+        operatingSystem: asset.operatingSystem || "",
+        productionIpAddress: asset.productionIpAddress || "",
+        managementMacAddress: asset.managementMacAddress || "",
+        powerSupply: asset.powerSupply || "",
+        serverRole: asset.serverRole || "",
+        installedApplications: asset.installedApplications || "",
       });
     } else {
       setFormData(initialFormData);
@@ -294,6 +298,7 @@ export function AssetFormModal({
         newData.peripheralType = "";
         newData.networkType = "";
         newData.itemName = "";
+        newData.computerName = "";
         // Reset monitor fields
         newData.screenSize = "";
         newData.resolution = "";
@@ -324,6 +329,15 @@ export function AssetFormModal({
       // Reset IMEI when compute type changes
       if (field === "computeType" && value !== "mobile") {
         newData.imeiNumber = "";
+      }
+
+      // Reset computer name when compute type changes to non-laptop/desktop
+      if (
+        field === "computeType" &&
+        value !== "laptop" &&
+        value !== "desktop"
+      ) {
+        newData.computerName = "";
       }
 
       // Reset monitor fields when peripheral type changes
@@ -357,110 +371,150 @@ export function AssetFormModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
 
-    // Basic validation
-    if (!formData.serialNumber || !formData.assetType || !formData.status) {
-      toast({
-        title: "Validation Error",
-        description:
-          "Please fill in all required fields (Serial Number, Asset Type, Status).",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Asset type specific validation
-    if (formData.assetType === "compute" && !formData.computeType) {
-      toast({
-        title: "Validation Error",
-        description: "Please select a compute type.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (formData.assetType === "peripheral") {
-      if (!formData.peripheralType) {
-        toast({
-          title: "Validation Error",
-          description: "Please select a peripheral type.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (formData.peripheralType !== "monitor" && !formData.itemName) {
-        toast({
-          title: "Validation Error",
-          description: "Please fill in Item Name.",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    if (formData.assetType === "network" && !formData.networkType) {
-      toast({
-        title: "Validation Error",
-        description: "Please select a network device type.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Server validation (when compute type is server)
-    if (formData.computeType === "server") {
-      if (!formData.hostname || !formData.processor || !formData.ramSize) {
+    try {
+      // Basic validation
+      if (!formData.serialNumber || !formData.assetType || !formData.status) {
         toast({
           title: "Validation Error",
           description:
-            "Please fill in Hostname, Processor, and RAM Size for servers.",
+            "Please fill in all required fields (Serial Number, Asset Type, Status).",
           variant: "destructive",
         });
         return;
       }
+
+      // Asset type specific validation
+      if (formData.assetType === "compute" && !formData.computeType) {
+        toast({
+          title: "Validation Error",
+          description: "Please select a compute type.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (formData.assetType === "peripheral") {
+        if (!formData.peripheralType) {
+          toast({
+            title: "Validation Error",
+            description: "Please select a peripheral type.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (formData.peripheralType !== "monitor" && !formData.itemName) {
+          toast({
+            title: "Validation Error",
+            description: "Please fill in Item Name.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      if (formData.assetType === "network" && !formData.networkType) {
+        toast({
+          title: "Validation Error",
+          description: "Please select a network device type.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Server validation (when compute type is server)
+      if (formData.computeType === "server") {
+        if (!formData.hostname || !formData.processor || !formData.ramSize) {
+          toast({
+            title: "Validation Error",
+            description:
+              "Please fill in Hostname, Processor, and RAM Size for servers.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // Determine the specific asset type for tag generation and storage
+      let specificAssetType = formData.assetType;
+      if (formData.assetType === "compute" && formData.computeType) {
+        specificAssetType = formData.computeType;
+      } else if (
+        formData.assetType === "peripheral" &&
+        formData.peripheralType
+      ) {
+        specificAssetType = formData.peripheralType;
+      } else if (formData.assetType === "network" && formData.networkType) {
+        specificAssetType = formData.networkType;
+      }
+
+      // Generate asset tag using the specific type
+      const generatedAssetTag = await generateAssetTag(
+        specificAssetType,
+        formData.deployedDate
+      );
+
+      // Convert form data to Asset format and call onSave
+      const assetData: Omit<Asset, "id"> = {
+        assetTag: generatedAssetTag,
+        serialNumber: formData.serialNumber,
+        type: specificAssetType as AssetType,
+        brand: formData.brand,
+        model: formData.model,
+        specifications: formData.specifications,
+        deployedDate: formData.deployedDate?.toISOString().split("T")[0] || "",
+        warrantyExpiry:
+          formData.warrantyExpiration?.toISOString().split("T")[0] || "",
+        vendor: formData.vendor,
+        assignedUser: formData.assignedUser,
+        department: formData.department,
+        status: formData.status as AssetStatus,
+        location: formData.location,
+        notes: formData.description,
+        computerName: formData.computerName,
+        // Monitor specific fields
+        screenSize: formData.screenSize,
+        resolution: formData.resolution,
+        connectionType: formData.connectionType,
+        // Network Asset specific fields
+        firmwareVersion: formData.firmwareVersion,
+        ipAddress: formData.ipAddress,
+        macAddress: formData.macAddress,
+        numberOfPorts: formData.numberOfPorts,
+        rackPosition: formData.rackPosition,
+        configBackupLocation: formData.configBackupLocation,
+        uplinkDownlinkInfo: formData.uplinkDownlinkInfo,
+        poeSupport: formData.poeSupport,
+        stackClusterMembership: formData.stackClusterMembership,
+        // Server specific fields
+        hostname: formData.hostname,
+        processor: formData.processor,
+        ramSize: formData.ramSize,
+        storage: formData.storage,
+        operatingSystem: formData.operatingSystem,
+        productionIpAddress: formData.productionIpAddress,
+        managementMacAddress: formData.managementMacAddress,
+        powerSupply: formData.powerSupply,
+        serverRole: formData.serverRole,
+        installedApplications: formData.installedApplications,
+      };
+
+      await onSave(assetData);
+
+      // Reset form (modal will be closed by parent component)
+      setFormData(initialFormData);
+    } catch (error) {
+      console.error("Error saving asset:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save asset. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-
-    // Determine the specific asset type for tag generation and storage
-    let specificAssetType = formData.assetType;
-    if (formData.assetType === "compute" && formData.computeType) {
-      specificAssetType = formData.computeType;
-    } else if (formData.assetType === "peripheral" && formData.peripheralType) {
-      specificAssetType = formData.peripheralType;
-    } else if (formData.assetType === "network" && formData.networkType) {
-      specificAssetType = formData.networkType;
-    }
-
-    // Generate asset tag using the specific type
-    const generatedAssetTag = await generateAssetTag(
-      specificAssetType,
-      formData.deployedDate
-    );
-
-    // Convert form data to Asset format and call onSave
-    const assetData: Omit<Asset, "id"> = {
-      assetTag: generatedAssetTag,
-      serialNumber: formData.serialNumber,
-      type: specificAssetType as AssetType,
-      brand: formData.brand,
-      model: formData.model,
-      specifications: formData.specifications,
-      deployedDate: formData.deployedDate?.toISOString().split("T")[0] || "",
-      warrantyExpiry:
-        formData.warrantyExpiration?.toISOString().split("T")[0] || "",
-      vendor: formData.vendor,
-      assignedUser: formData.assignedUser,
-      department: formData.department,
-      status: formData.status as AssetStatus,
-      location: formData.location,
-      notes: formData.description,
-    };
-
-    onSave(assetData);
-
-    // Reset form and close modal
-    setFormData(initialFormData);
-    onClose();
   };
 
   const handleCancel = () => {
@@ -629,6 +683,28 @@ export function AssetFormModal({
                           handleInputChange("imeiNumber", e.target.value)
                         }
                         placeholder="Enter IMEI number"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+                  )}
+
+                {formData.assetType === "compute" &&
+                  (formData.computeType === "laptop" ||
+                    formData.computeType === "desktop") && (
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="computerName"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Computer Name
+                      </Label>
+                      <Input
+                        id="computerName"
+                        value={formData.computerName || ""}
+                        onChange={(e) =>
+                          handleInputChange("computerName", e.target.value)
+                        }
+                        placeholder="Enter computer name"
                         className="border-input focus:border-ring bg-background"
                       />
                     </div>
@@ -1242,83 +1318,78 @@ export function AssetFormModal({
                   />
                 </div>
 
-                {/* Hide dates for peripherals, show for other asset types */}
-                {formData.assetType !== "peripheral" && (
-                  <>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-foreground">
-                        Deployed Date
-                      </Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
-                              !formData.deployedDate && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {formData.deployedDate &&
-                            !isNaN(formData.deployedDate.getTime())
-                              ? format(formData.deployedDate, "PPP")
-                              : "Select date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          className="w-auto p-0 bg-popover border-border"
-                          align="start"
-                        >
-                          <Calendar
-                            mode="single"
-                            selected={formData.deployedDate}
-                            onSelect={(date) =>
-                              handleDateChange("deployedDate", date)
-                            }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground">
+                    Deployed Date
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
+                          !formData.deployedDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.deployedDate &&
+                        !isNaN(formData.deployedDate.getTime())
+                          ? format(formData.deployedDate, "PPP")
+                          : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-auto p-0 bg-popover border-border"
+                      align="start"
+                    >
+                      <Calendar
+                        mode="single"
+                        selected={formData.deployedDate}
+                        onSelect={(date) =>
+                          handleDateChange("deployedDate", date)
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-foreground">
-                        Warranty Expiration
-                      </Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
-                              !formData.warrantyExpiration &&
-                                "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {formData.warrantyExpiration &&
-                            !isNaN(formData.warrantyExpiration.getTime())
-                              ? format(formData.warrantyExpiration, "PPP")
-                              : "Select date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          className="w-auto p-0 bg-popover border-border"
-                          align="start"
-                        >
-                          <Calendar
-                            mode="single"
-                            selected={formData.warrantyExpiration}
-                            onSelect={(date) =>
-                              handleDateChange("warrantyExpiration", date)
-                            }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </>
-                )}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground">
+                    Warranty Expiration
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
+                          !formData.warrantyExpiration &&
+                            "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.warrantyExpiration &&
+                        !isNaN(formData.warrantyExpiration.getTime())
+                          ? format(formData.warrantyExpiration, "PPP")
+                          : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-auto p-0 bg-popover border-border"
+                      align="start"
+                    >
+                      <Calendar
+                        mode="single"
+                        selected={formData.warrantyExpiration}
+                        onSelect={(date) =>
+                          handleDateChange("warrantyExpiration", date)
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
 
               {/* Assignment Information */}
@@ -1457,15 +1528,24 @@ export function AssetFormModal({
           <Button
             type="button"
             onClick={handleSubmit}
-            className="bg-primary hover:bg-primary/90 shadow-lg transition-all duration-200"
+            disabled={isLoading}
+            className="bg-primary hover:bg-primary/90 shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Save className="w-4 h-4 mr-2" />
-            {isRedeploying ? "Redeploy" : "Save Asset"}
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
+            {isLoading
+              ? "Saving..."
+              : isRedeploying
+              ? "Redeploy"
+              : "Save Asset"}
           </Button>
         </div>
       </DialogContent>
     </Dialog>
   );
-}
+});
 
 export default AssetFormModal;

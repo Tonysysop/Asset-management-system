@@ -44,6 +44,32 @@ export interface Asset {
   networkType?: "router" | "switch";
   itemName?: string;
   computeType?: "laptop" | "desktop" | "mobile" | "server";
+  computerName?: string;
+  // Monitor specific fields
+  screenSize?: string;
+  resolution?: string;
+  connectionType?: string;
+  // Network Asset specific fields
+  firmwareVersion?: string;
+  ipAddress?: string;
+  macAddress?: string;
+  numberOfPorts?: string;
+  rackPosition?: string;
+  configBackupLocation?: string;
+  uplinkDownlinkInfo?: string;
+  poeSupport?: string;
+  stackClusterMembership?: string;
+  // Server specific fields
+  hostname?: string;
+  processor?: string;
+  ramSize?: string;
+  storage?: string;
+  operatingSystem?: string;
+  productionIpAddress?: string;
+  managementMacAddress?: string;
+  powerSupply?: string;
+  serverRole?: string;
+  installedApplications?: string;
 }
 
 export interface RetrievedAsset extends Asset {
