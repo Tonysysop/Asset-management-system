@@ -18,8 +18,15 @@ const assetsCollection = collection(db, "assets");
 const retrievedCollection = collection(db, "retrieved_assets");
 
 export const getAssets = async (): Promise<Asset[]> => {
-  const snapshot = await getDocs(assetsCollection);
-  return snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset));
+  try {
+    const snapshot = await getDocs(assetsCollection);
+    return snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset));
+  } catch (error) {
+    console.error("Error fetching assets:", error);
+    throw new Error(
+      "Failed to fetch assets. Please check your connection and try again."
+    );
+  }
 };
 
 export const generateAssetTag = async (
@@ -49,18 +56,19 @@ export const generateAssetTag = async (
 
   const abbreviation = typeAbbreviations[assetType.toLowerCase()] || "ASS";
 
-  // Filter assets by type and year
-  const sameTypeAssets = existingAssets.filter((asset) => {
-    const assetYear = asset.deployedDate
-      ? new Date(asset.deployedDate).getFullYear()
-      : new Date().getFullYear();
-    return (
-      asset.type.toLowerCase() === assetType.toLowerCase() && assetYear === year
-    );
-  });
+  // Extract sequence numbers from ALL existing asset tags (global across all years and types)
+  const sequenceNumbers = existingAssets
+    .map((asset) => {
+      const tagParts = asset.assetTag.split("-");
+      const sequencePart = tagParts[tagParts.length - 1]; // Last part should be the sequence
+      const sequence = parseInt(sequencePart, 10);
+      return isNaN(sequence) ? 0 : sequence;
+    })
+    .filter((num) => num > 0);
 
-  // Get the next sequence number
-  const nextSequence = sameTypeAssets.length + 1;
+  // Get the next sequence number (global across all years and types)
+  const nextSequence =
+    sequenceNumbers.length > 0 ? Math.max(...sequenceNumbers) + 1 : 1;
 
   return `BUA-${abbreviation}-${year}-${nextSequence
     .toString()
@@ -75,25 +83,35 @@ export const getRetrievedAssets = async (): Promise<RetrievedAsset[]> => {
 };
 
 export const addAsset = async (assetData: Omit<Asset, "id">, user: string) => {
-  const q = query(
-    assetsCollection,
-    where("assetTag", "==", assetData.assetTag)
-  );
-  const snapshot = await getDocs(q);
-  if (!snapshot.empty) {
-    throw new Error(`Asset with tag ${assetData.assetTag} already exists.`);
+  try {
+    const q = query(
+      assetsCollection,
+      where("assetTag", "==", assetData.assetTag)
+    );
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      throw new Error(`Asset with tag ${assetData.assetTag} already exists.`);
+    }
+    const docRef = await addDoc(assetsCollection, assetData);
+    await addAction({
+      user,
+      actionType: "CREATE",
+      itemType: "asset",
+      itemId: docRef.id,
+      assetTag: assetData.assetTag,
+      timestamp: new Date(),
+      details: `Created asset with tag ${assetData.assetTag}`,
+    });
+    return { ...assetData, id: docRef.id };
+  } catch (error) {
+    console.error("Error adding asset:", error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(
+      "Failed to add asset. Please check your connection and try again."
+    );
   }
-  const docRef = await addDoc(assetsCollection, assetData);
-  await addAction({
-    user,
-    actionType: "CREATE",
-    itemType: "asset",
-    itemId: docRef.id,
-    assetTag: assetData.assetTag,
-    timestamp: new Date(),
-    details: `Created asset with tag ${assetData.assetTag}`,
-  });
-  return { ...assetData, id: docRef.id };
 };
 
 export const addAssets = async (

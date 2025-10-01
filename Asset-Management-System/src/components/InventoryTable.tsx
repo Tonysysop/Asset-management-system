@@ -1,21 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import type { Asset, UserRole } from "../types/inventory";
-import {
-  Edit,
-  Trash2,
-  Monitor,
-  Laptop,
-  Printer,
-  Server,
-  Router,
-  Smartphone,
-  HardDrive,
-  Upload,
-  Plus,
-  MoreVertical,
-  ArchiveRestore,
-} from "lucide-react";
-import { Button } from "./ui/button";
+import { Upload, Plus } from "lucide-react";
+import AssetTableRow from "./AssetTableRow";
 import {
   Pagination,
   PaginationContent,
@@ -25,27 +11,12 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "./ui/pagination";
-import { addAssets } from "../services/assetService";
+import { useAddAssets } from "../hooks/useAssets";
 import ImportModal from "./ImportModal";
-import ViewDetailsModal from "./ViewDetailsModal";
 import { useToast } from "../contexts/ToastContext";
 import { useAuth } from "../contexts/AuthContext";
-import { format } from "date-fns";
 import ConfirmationDialog from "./ConfirmationDialog";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "./ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
+import { Table, TableHeader, TableBody, TableRow, TableHead } from "./ui/table";
 
 interface InventoryTableProps {
   assets: Asset[];
@@ -76,30 +47,34 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   const { showToast } = useToast();
   const { currentUser } = useAuth();
   const [assetToRetrieve, setAssetToRetrieve] = useState<Asset | null>(null);
+  const addAssetsMutation = useAddAssets();
 
-  const handleFileImport = async (data: unknown[]) => {
-    const assetData = data as Omit<Asset, "id">[];
-    try {
-      const skippedAssetTags = await addAssets(
-        assetData,
-        currentUser?.email || "Unknown User"
-      );
-      onImport();
-      if (skippedAssetTags.length > 0) {
-        showToast(
-          `Skipped duplicate asset tags: ${skippedAssetTags.join(", ")}`,
-          "warning"
-        );
-      } else {
-        showToast("All assets imported successfully", "success");
+  const handleFileImport = useCallback(
+    async (data: unknown[]) => {
+      const assetData = data as Omit<Asset, "id">[];
+      try {
+        const skippedAssetTags = await addAssetsMutation.mutateAsync({
+          assets: assetData,
+          user: currentUser?.email || "Unknown User",
+        });
+        onImport();
+        if (skippedAssetTags.length > 0) {
+          showToast(
+            `Skipped duplicate asset tags: ${skippedAssetTags.join(", ")}`,
+            "warning"
+          );
+        } else {
+          showToast("All assets imported successfully", "success");
+        }
+      } catch (error) {
+        console.error("Import error:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error occurred";
+        showToast(`Error importing assets: ${errorMessage}`, "error");
       }
-    } catch (error) {
-      console.error("Import error:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error occurred";
-      showToast(`Error importing assets: ${errorMessage}`, "error");
-    }
-  };
+    },
+    [addAssetsMutation, currentUser?.email, onImport, showToast]
+  );
 
   const assetSampleData = `serialNumber,type,computeType,peripheralType,networkType,brand,model,specifications,warrantyExpiry,vendor,assignedUser,department,status,location,notes,deployedDate,imeiNumber,screenSize,resolution,connectionType,firmwareVersion,ipAddress,macAddress,numberOfPorts,powerSupply,serverRole,installedApplications
 SN-001,laptop,,,,"Dell","XPS 15","i7, 16GB RAM, 512GB SSD",2026-01-14,"Dell Inc.","John Doe","Engineering","in-use","Building A","Room 101","2025-01-15","","","","","","","","","","","",""
@@ -153,56 +128,39 @@ SN-009,switch,,,,"Netgear","GS108T","8-Port Gigabit",2026-09-14,"Netgear Inc.","
     "installedApplications",
   ];
 
-  const getAssetIcon = (type: string) => {
-    switch (type) {
-      case "laptop":
-        return <Laptop className="w-4 h-4" />;
-      case "desktop":
-        return <Monitor className="w-4 h-4" />;
-      case "printer":
-        return <Printer className="w-4 h-4" />;
-      case "server":
-        return <Server className="w-4 h-4" />;
-      case "router":
-        return <Router className="w-4 h-4" />;
-      case "mobile":
-        return <Smartphone className="w-4 h-4" />;
-      default:
-        return <HardDrive className="w-4 h-4" />;
-    }
-  };
+  // Memoized handlers to prevent unnecessary re-renders
+  const handleEdit = useCallback(
+    (asset: Asset) => {
+      onEdit(asset);
+    },
+    [onEdit]
+  );
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "in-use":
-        return "bg-green-100 text-green-800";
-      case "spare":
-        return "bg-blue-100 text-blue-800";
-      case "repair":
-        return "bg-amber-100 text-amber-800";
-      case "retired":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+  const handleDelete = useCallback(
+    (id: string) => {
+      onDelete(id);
+    },
+    [onDelete]
+  );
 
-  const isWarrantyExpiring = (warrantyDate: string) => {
-    const warranty = new Date(warrantyDate);
-    const today = new Date();
-    const monthsUntilExpiry =
-      (warranty.getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 30);
-    return monthsUntilExpiry <= 3 && monthsUntilExpiry > 0;
-  };
+  const handleRetrieve = useCallback(
+    (asset: Asset) => {
+      onRetrieve?.(asset);
+    },
+    [onRetrieve]
+  );
 
-  const handleSort = (field: keyof Asset) => {
-    if (field === sortField) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
+  const handleSort = useCallback(
+    (field: keyof Asset) => {
+      if (field === sortField) {
+        setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      } else {
+        setSortField(field);
+        setSortDirection("asc");
+      }
+    },
+    [sortField, sortDirection]
+  );
 
   const sortedAssets = useMemo(() => {
     return [...assets].sort((a, b) => {
@@ -308,131 +266,14 @@ SN-009,switch,,,,"Netgear","GS108T","8-Port Gigabit",2026-09-14,"Netgear Inc.","
             </TableHeader>
             <TableBody>
               {paginatedAssets.map((asset) => (
-                <TableRow key={asset.id}>
-                  <TableCell>
-                    <div className="font-medium">{asset.assetTag}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {asset.serialNumber}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <div className="mr-2">{getAssetIcon(asset.type)}</div>
-                      <span className="capitalize">{asset.type}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium">{asset.brand}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {asset.model}
-                    </div>
-                  </TableCell>
-                  <TableCell>{asset.assignedUser}</TableCell>
-                  <TableCell>{asset.department}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
-                        asset.status
-                      )}`}
-                    >
-                      {asset.status.replace("-", " ").toUpperCase()}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div
-                      className={`${
-                        isWarrantyExpiring(asset.warrantyExpiry)
-                          ? "text-amber-600 font-medium"
-                          : ""
-                      }`}
-                    >
-                      {asset.warrantyExpiry
-                        ? (() => {
-                            try {
-                              const date = new Date(asset.warrantyExpiry);
-                              return isNaN(date.getTime())
-                                ? asset.warrantyExpiry
-                                : format(date, "PPP");
-                            } catch {
-                              return asset.warrantyExpiry;
-                            }
-                          })()
-                        : "N/A"}
-                    </div>
-                    {isWarrantyExpiring(asset.warrantyExpiry) && (
-                      <div className="text-xs text-amber-600">
-                        Expiring Soon
-                      </div>
-                    )}
-                  </TableCell>
-                  {userRole === "admin" && (
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          onCloseAutoFocus={(e) => {
-                            e.preventDefault();
-                          }}
-                        >
-                          <DropdownMenuItem>
-                            <ViewDetailsModal
-                              item={asset}
-                              title="Asset Details"
-                            />
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.preventDefault();
-                              onEdit(asset);
-                            }}
-                          >
-                            <Edit className="w-4 h-4 mr-2" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.preventDefault();
-                              onDelete(asset.id);
-                            }}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" /> Delete
-                          </DropdownMenuItem>
-                          {onRetrieve && !isRetrievedView && (
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setAssetToRetrieve(asset);
-                              }}
-                            >
-                              <ArchiveRestore className="w-4 h-4 mr-2" />{" "}
-                              Retrieve
-                            </DropdownMenuItem>
-                          )}
-                          {isRetrievedView && (
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.preventDefault();
-                                onEdit(asset);
-                              }}
-                            >
-                              <ArchiveRestore className="w-4 h-4 mr-2" />{" "}
-                              Redeploy
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  )}
-                  {userRole === "auditor" && (
-                    <TableCell>
-                      <ViewDetailsModal item={asset} title="Asset Details" />
-                    </TableCell>
-                  )}
-                </TableRow>
+                <AssetTableRow
+                  key={asset.id}
+                  asset={asset}
+                  userRole={userRole as "admin" | "auditor"}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onRetrieve={handleRetrieve}
+                />
               ))}
             </TableBody>
           </Table>

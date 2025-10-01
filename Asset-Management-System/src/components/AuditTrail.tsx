@@ -1,7 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import type { Action } from "../types/inventory";
-import { getActions } from "../services/actionService";
+import { useActions } from "../hooks/useActions";
 import { Eye, User, Calendar, Tag, Package, AlertCircle } from "lucide-react";
+import LoadingAnimation from "./LoadingAnimation";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "./ui/pagination";
 import {
   Dialog,
   DialogContent,
@@ -21,15 +31,9 @@ import {
 import { Badge } from "./ui/badge";
 
 const AuditTrail: React.FC = () => {
-  const [actions, setActions] = useState<Action[]>([]);
-
-  useEffect(() => {
-    const fetchActions = async () => {
-      const fetchedActions = await getActions();
-      setActions(fetchedActions);
-    };
-    fetchActions();
-  }, []);
+  const { data: actions = [], isLoading, error } = useActions();
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const getItemId = (action: Action) => {
     if (action.itemType === "asset") {
@@ -105,12 +109,6 @@ const AuditTrail: React.FC = () => {
           const commaIndex = newValue.indexOf(", ");
           const finalNewValue =
             commaIndex !== -1 ? newValue.substring(0, commaIndex) : newValue;
-
-          const assignedUsersMatch = [
-            "assignedUsers:",
-            oldValue,
-            finalNewValue,
-          ];
 
           const oldUsers = formatAssignedUsers(oldValue);
           const newUsers = formatAssignedUsers(finalNewValue);
@@ -216,7 +214,7 @@ const AuditTrail: React.FC = () => {
 
     try {
       // Parse the formatted object string back to extract user information
-      const users = [];
+      const users: any[] = [];
 
       // Extract user objects from the string
       const userMatches = value.match(/\{[^}]*\}/g);
@@ -266,6 +264,51 @@ const AuditTrail: React.FC = () => {
     return "Unknown Item";
   };
 
+  // Pagination logic
+  const totalPages = Math.ceil(actions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedActions = useMemo(() => {
+    return actions.slice(startIndex, endIndex);
+  }, [actions, startIndex, endIndex]);
+
+  // Reset to first page when actions change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [actions.length]);
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="p-4">
+          <h2 className="text-xl font-semibold">Audit Trail</h2>
+        </div>
+        <div className="flex items-center justify-center py-16">
+          <LoadingAnimation
+            size="lg"
+            text="Loading audit trail..."
+            className="py-8"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="p-4">
+          <h2 className="text-xl font-semibold">Audit Trail</h2>
+        </div>
+        <div className="flex items-center justify-center py-16">
+          <p className="text-red-600">
+            Error loading audit trail. Please try again.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       <div className="p-4">
@@ -300,7 +343,7 @@ const AuditTrail: React.FC = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {actions.map((action) => {
+            {paginatedActions.map((action) => {
               const { mainAction, changes } = formatActionDetails(
                 action.details
               );
@@ -532,7 +575,10 @@ const AuditTrail: React.FC = () => {
                                                   0 ? (
                                                 <div className="space-y-2">
                                                   {change.oldValue.users.map(
-                                                    (user, userIndex) => (
+                                                    (
+                                                      user: any,
+                                                      userIndex: number
+                                                    ) => (
                                                       <div
                                                         key={userIndex}
                                                         className="space-y-1"
@@ -602,7 +648,10 @@ const AuditTrail: React.FC = () => {
                                                   0 ? (
                                                 <div className="space-y-2">
                                                   {change.newValue.users.map(
-                                                    (user, userIndex) => (
+                                                    (
+                                                      user: any,
+                                                      userIndex: number
+                                                    ) => (
                                                       <div
                                                         key={userIndex}
                                                         className="space-y-1"
@@ -699,6 +748,78 @@ const AuditTrail: React.FC = () => {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t">
+          <div className="text-sm text-muted-foreground">
+            Showing {startIndex + 1} to {Math.min(endIndex, actions.length)} of{" "}
+            {actions.length} actions
+          </div>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
+                  className={
+                    currentPage === 1
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+
+              {/* Page numbers */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => {
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  } else if (
+                    page === currentPage - 2 ||
+                    page === currentPage + 2
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    );
+                  }
+                  return null;
+                }
+              )}
+
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  className={
+                    currentPage === totalPages
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </div>
   );
 };

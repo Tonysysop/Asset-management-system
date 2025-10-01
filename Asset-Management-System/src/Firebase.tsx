@@ -20,8 +20,11 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore
+// Initialize Firestore with connection settings
 export const db = getFirestore(app);
 
 // Initialize Firebase Auth
 export const auth = getAuth(app);
+
+// Firestore configuration for better connection handling
+// You can add emulator connection here if needed for development

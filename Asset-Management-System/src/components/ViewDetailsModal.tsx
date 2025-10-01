@@ -7,7 +7,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import {
   Eye,
   Calendar,
@@ -203,6 +202,7 @@ const isFieldApplicable = (
     "category",
     "status",
     "specifications",
+    "computerName",
   ];
   if (basicFields.includes(key)) return true;
 
@@ -383,6 +383,7 @@ const categorizeFields = (item: Record<string, unknown>) => {
         "type",
         "category",
         "status",
+        "computerName",
       ].includes(key)
     ) {
       categories.basic.push([key, value]);
@@ -413,13 +414,7 @@ const categorizeFields = (item: Record<string, unknown>) => {
     ) {
       categories.technical.push([key, value]);
     } else if (
-      [
-        "assignedUser",
-        "department",
-        "location",
-        "vendor",
-        "supplierName",
-      ].includes(key)
+      ["assignedUser", "department", "location", "supplierName"].includes(key)
     ) {
       categories.assignment.push([key, value]);
     } else if (
@@ -433,9 +428,27 @@ const categorizeFields = (item: Record<string, unknown>) => {
       ].includes(key)
     ) {
       categories.dates.push([key, value]);
+    } else if (key === "vendor") {
+      categories.other.push([key, value]);
     } else {
       categories.other.push([key, value]);
     }
+  });
+
+  // Sort assignment fields in the desired order: assignedUser, department, location, supplierName
+  const assignmentOrder = [
+    "assignedUser",
+    "department",
+    "location",
+    "supplierName",
+  ];
+  categories.assignment.sort((a, b) => {
+    const aIndex = assignmentOrder.indexOf(a[0]);
+    const bIndex = assignmentOrder.indexOf(b[0]);
+    // If field is not in the order array, put it at the end
+    if (aIndex === -1) return 1;
+    if (bIndex === -1) return -1;
+    return aIndex - bIndex;
   });
 
   return categories;
@@ -500,26 +513,24 @@ const ViewDetailsModal: React.FC<ViewDetailsModalProps> = ({ item, title }) => {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <div onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="sm" className="h-8 px-2">
-            <Eye className="w-4 h-4 mr-1.5" />
-            View
-          </Button>
+        <div onClick={(e) => e.stopPropagation()} className="flex items-center">
+          <Eye className="w-4 h-4 mr-2" />
+          View
         </div>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pb-4">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="pb-4 flex-shrink-0">
           <DialogTitle className="text-xl font-semibold text-foreground flex items-center gap-2">
             <Package className="w-5 h-5 text-bua-red" />
             {title}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sticky top-0 bg-background z-10 pb-2 border-b border-border/50">
             View detailed information about this item including specifications,
             assignments, and important dates.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 overflow-y-auto flex-1 pt-4">
           {renderFieldGroup(
             "Basic Information",
             categorizedFields.basic,
