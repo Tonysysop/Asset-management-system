@@ -273,6 +273,7 @@ SN-009,switch,,,,"Netgear","GS108T","8-Port Gigabit",2026-09-14,"Netgear Inc.","
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onRetrieve={handleRetrieve}
+                  isRetrievedView={isRetrievedView}
                 />
               ))}
             </TableBody>

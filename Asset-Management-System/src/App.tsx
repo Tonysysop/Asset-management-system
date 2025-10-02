@@ -45,6 +45,7 @@ import {
   useUpdateAsset,
   useDeleteAsset,
   useRetrieveAsset,
+  useDeleteRetrievedAsset,
 } from "./hooks/useAssets";
 import {
   useReceivables,
@@ -74,6 +75,7 @@ function AppContent() {
   const updateAssetMutation = useUpdateAsset();
   const deleteAssetMutation = useDeleteAsset();
   const retrieveAssetMutation = useRetrieveAsset();
+  const deleteRetrievedAssetMutation = useDeleteRetrievedAsset();
   const addReceivableMutation = useAddReceivable();
   const updateReceivableMutation = useUpdateReceivable();
   const deleteReceivableMutation = useDeleteReceivable();
@@ -301,7 +303,10 @@ function AppContent() {
             asset: assetData,
             user: currentUser?.email || "Unknown User",
           });
-          // TODO: Add removeRetrieved mutation
+          await deleteRetrievedAssetMutation.mutateAsync({
+            id: editingAsset.id,
+            user: currentUser?.email || "Unknown User",
+          });
           showToast("Asset redeployed to Inventory", "success");
         } else {
           await updateAssetMutation.mutateAsync({
@@ -664,6 +669,7 @@ function AppContent() {
               onDelete={handleDeleteAsset}
               onImport={handleImport}
               onAdd={handleAddAsset}
+              onRetrieve={handleRedeployFromRetrieved}
               isRetrievedView
             />
           )}

@@ -34,6 +34,7 @@ export const generateAssetTag = async (
   deployedDate?: Date
 ): Promise<string> => {
   const existingAssets = await getAssets();
+  const existingRetrievedAssets = await getRetrievedAssets();
   const year = deployedDate
     ? deployedDate.getFullYear()
     : new Date().getFullYear();
@@ -56,8 +57,11 @@ export const generateAssetTag = async (
 
   const abbreviation = typeAbbreviations[assetType.toLowerCase()] || "ASS";
 
+  // Combine all assets (active + retrieved) to check for used sequence numbers
+  const allAssets = [...existingAssets, ...existingRetrievedAssets];
+
   // Extract sequence numbers from ALL existing asset tags (global across all years and types)
-  const sequenceNumbers = existingAssets
+  const sequenceNumbers = allAssets
     .map((asset) => {
       const tagParts = asset.assetTag.split("-");
       const sequencePart = tagParts[tagParts.length - 1]; // Last part should be the sequence
