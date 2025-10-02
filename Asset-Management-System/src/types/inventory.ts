@@ -115,7 +115,7 @@ export interface License {
   assignedUser: string; // For one-off licenses
   department: string;
   notes: string;
-  status: LicenseStatus;
+  status?: LicenseStatus; // Optional, calculated from expiry date
   assignedUsers?: LicenseUser[]; // For volume licenses
 }
 

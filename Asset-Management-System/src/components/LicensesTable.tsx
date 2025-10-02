@@ -8,6 +8,7 @@ import {
   Upload,
   Plus,
   MoreVertical,
+  UserPlus,
 } from "lucide-react";
 import { addLicenses } from "../services/licenseService";
 import ImportModal from "./ImportModal";
@@ -44,6 +45,7 @@ interface LicensesTableProps {
   userRole: UserRole;
   onEdit: (license: License) => void;
   onDelete: (id: string) => void;
+  onAssign: (license: License) => void;
   onImport: () => void;
   onAdd: () => void;
 }
@@ -53,6 +55,7 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
   userRole,
   onEdit,
   onDelete,
+  onAssign,
   onImport,
   onAdd,
 }) => {
@@ -81,13 +84,13 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
     handleFileImport(data as Omit<License, "id">[]);
   };
 
-  const licenseSampleData = `licenseName,vendor,licenseKey,licenseType,seats,purchaseDate,expiryDate,assignedUser,department,notes,status
-Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-01,Jane Smith,Marketing,Standard license,active`;
+  const licenseSampleData = `licenseName,vendor,licenseKey,licenseType,seats,purchaseDate,expiryDate,assignedUser,department,notes
+Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-01,Jane Smith,Marketing,Standard license`;
 
   const licenseInstructions = [
-    "The CSV file must have the following columns: licenseName, vendor, licenseKey, licenseType, seats, purchaseDate, expiryDate, assignedUser, department, notes, status",
+    "The CSV file must have the following columns: licenseName, vendor, licenseKey, licenseType, seats, purchaseDate, expiryDate, assignedUser, department, notes",
     "The licenseType must be one of: one-off, volume",
-    "The status must be one of: active, expired, expiring-soon",
+    "Status will be automatically calculated based on the expiry date (active, expired, expiring-soon)",
     "Dates can be in any format (MM/DD/YYYY, YYYY-MM-DD, etc.) and will be automatically converted to 'October 15th, 2025' format.",
   ];
 
@@ -102,8 +105,23 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
     "assignedUser",
     "department",
     "notes",
-    "status",
   ];
+
+  const calculateLicenseStatus = (expiryDate: string): string => {
+    const expiryDateObj = new Date(expiryDate);
+    const today = new Date();
+    const daysUntilExpiry = Math.ceil(
+      (expiryDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (daysUntilExpiry < 0) {
+      return "expired";
+    } else if (daysUntilExpiry <= 30) {
+      return "expiring-soon";
+    } else {
+      return "active";
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -310,10 +328,12 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
                 <TableCell>
                   <span
                     className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
-                      license.status
+                      calculateLicenseStatus(license.expiryDate)
                     )}`}
                   >
-                    {license.status.replace("-", " ").toUpperCase()}
+                    {calculateLicenseStatus(license.expiryDate)
+                      .replace("-", " ")
+                      .toUpperCase()}
                   </span>
                 </TableCell>
                 {userRole === "admin" && (
@@ -335,6 +355,16 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
                             title="License Details"
                           />
                         </DropdownMenuItem>
+                        {license.licenseType === "volume" && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onAssign(license);
+                            }}
+                          >
+                            <UserPlus className="w-4 h-4 mr-2" /> Assign
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.preventDefault();
