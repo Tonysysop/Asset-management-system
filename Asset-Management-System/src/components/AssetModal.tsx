@@ -450,15 +450,15 @@ export const AssetFormModal = memo(function AssetFormModal({
         specificAssetType = formData.networkType;
       }
 
-      // Generate asset tag using the specific type
-      const generatedAssetTag = await generateAssetTag(
-        specificAssetType,
-        formData.deployedDate
-      );
+      // Generate asset tag using the specific type (unless redeploying - then retain original)
+      const assetTag =
+        isRedeploying && asset
+          ? asset.assetTag
+          : await generateAssetTag(specificAssetType, formData.deployedDate);
 
       // Convert form data to Asset format and call onSave
       const assetData: Omit<Asset, "id"> = {
-        assetTag: generatedAssetTag,
+        assetTag: assetTag,
         serialNumber: formData.serialNumber,
         type: specificAssetType as AssetType,
         brand: formData.brand,

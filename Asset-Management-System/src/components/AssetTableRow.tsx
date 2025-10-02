@@ -1,4 +1,4 @@
-import  { memo } from "react";
+import { memo } from "react";
 import { safeFormatDate, isValidDate } from "../utils/dateUtils";
 import {
   Edit,
@@ -31,10 +31,18 @@ interface AssetTableRowProps {
   onEdit: (asset: Asset) => void;
   onDelete: (id: string) => void;
   onRetrieve?: (asset: Asset) => void;
+  isRetrievedView?: boolean;
 }
 
 const AssetTableRow = memo<AssetTableRowProps>(
-  ({ asset, userRole, onEdit, onDelete, onRetrieve }) => {
+  ({
+    asset,
+    userRole,
+    onEdit,
+    onDelete,
+    onRetrieve,
+    isRetrievedView = false,
+  }) => {
     const getAssetIcon = (type: string) => {
       switch (type.toLowerCase()) {
         case "laptop":
@@ -159,7 +167,7 @@ const AssetTableRow = memo<AssetTableRowProps>(
                 >
                   <Edit className="w-4 h-4 mr-2" /> Edit
                 </DropdownMenuItem>
-                {onRetrieve && (
+                {onRetrieve && !isRetrievedView && (
                   <DropdownMenuItem
                     onClick={(e) => {
                       e.preventDefault();
@@ -167,6 +175,16 @@ const AssetTableRow = memo<AssetTableRowProps>(
                     }}
                   >
                     <Archive className="w-4 h-4 mr-2" /> Retrieve
+                  </DropdownMenuItem>
+                )}
+                {onRetrieve && isRetrievedView && (
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleRetrieve();
+                    }}
+                  >
+                    <Archive className="w-4 h-4 mr-2" /> Redeploy
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
