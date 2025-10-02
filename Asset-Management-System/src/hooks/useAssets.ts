@@ -72,7 +72,7 @@ export const useAddAsset = () => {
       // Return a context object with the snapshotted value
       return { previousAssets };
     },
-    onError: (_, _, context) => {
+    onError: (_, __, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousAssets) {
         queryClient.setQueryData(assetKeys.lists(), context.previousAssets);
@@ -166,7 +166,7 @@ export const useDeleteAsset = () => {
       // Return a context object with the snapshotted value
       return { previousAssets };
     },
-    onError: (_, _, context) => {
+    onError: (_, __, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousAssets) {
         queryClient.setQueryData(assetKeys.lists(), context.previousAssets);
