@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getActions } from "../services/actionService";
-import type { Action } from "../types/inventory";
+//import type { Action } from "../types/inventory";
 
 // Query keys
 export const actionKeys = {

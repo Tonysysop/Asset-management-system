@@ -1,6 +1,5 @@
 import Papa from "papaparse";
 import type { Asset, Receivable, License } from "../types/inventory";
-import { generateAssetTag } from "../services/assetService";
 
 // Helper function to format dates to "October 15th, 2025" format
 const formatDate = (dateString: string): string => {
@@ -91,7 +90,7 @@ const formatDate = (dateString: string): string => {
 
 // Helper function to transform asset data with date formatting and auto-generated tags
 const transformAssetData = async (
-  data: any[]
+  data: Record<string, unknown>[]
 ): Promise<Omit<Asset, "id">[]> => {
   const transformedAssets = [];
 
@@ -112,14 +111,14 @@ const transformAssetData = async (
     }
 
     const year = item.deployedDate
-      ? new Date(item.deployedDate).getFullYear()
+      ? new Date(item.deployedDate as string).getFullYear()
       : currentYear;
 
     const sequenceNumber = startingSequence + i;
 
     // Generate asset tag with the global sequence
     const generatedAssetTag = `BUA-${getTypeAbbreviation(
-      specificAssetType
+      specificAssetType as string
     )}-${year}-${sequenceNumber.toString().padStart(4, "0")}`;
 
     transformedAssets.push({
@@ -128,19 +127,21 @@ const transformAssetData = async (
       type: specificAssetType,
       // Transform date fields
       deployedDate: item.deployedDate
-        ? formatDate(item.deployedDate)
+        ? formatDate(item.deployedDate as string)
         : item.deployedDate,
       warrantyExpiry: item.warrantyExpiry
-        ? formatDate(item.warrantyExpiry)
+        ? formatDate(item.warrantyExpiry as string)
         : item.warrantyExpiry,
       // Handle purchaseDate if it exists
-      ...(item.purchaseDate && {
-        deployedDate: formatDate(item.purchaseDate),
-      }),
+      ...(item.purchaseDate
+        ? {
+            deployedDate: formatDate(item.purchaseDate as string),
+          }
+        : {}),
     });
   }
 
-  return transformedAssets;
+  return transformedAssets as Omit<Asset, "id">[];
 };
 
 // Helper function to get the next global sequence number for a year
@@ -180,28 +181,32 @@ const getTypeAbbreviation = (assetType: string): string => {
 };
 
 // Helper function to transform receivable data with date formatting
-const transformReceivableData = (data: any[]): Omit<Receivable, "id">[] => {
+const transformReceivableData = (
+  data: Record<string, unknown>[]
+): Omit<Receivable, "id">[] => {
   return data.map((item) => ({
     ...item,
     // Transform date fields
     purchaseDate: item.purchaseDate
-      ? formatDate(item.purchaseDate)
+      ? formatDate(item.purchaseDate as string)
       : item.purchaseDate,
-  }));
+  })) as Omit<Receivable, "id">[];
 };
 
 // Helper function to transform license data with date formatting
-const transformLicenseData = (data: any[]): Omit<License, "id">[] => {
+const transformLicenseData = (
+  data: Record<string, unknown>[]
+): Omit<License, "id">[] => {
   return data.map((item) => ({
     ...item,
     // Transform date fields
     expirationDate: item.expirationDate
-      ? formatDate(item.expirationDate)
+      ? formatDate(item.expirationDate as string)
       : item.expirationDate,
     assignedDate: item.assignedDate
-      ? formatDate(item.assignedDate)
+      ? formatDate(item.assignedDate as string)
       : item.assignedDate,
-  }));
+  })) as unknown as Omit<License, "id">[];
 };
 
 export const importFromCSV = <T>(file: File): Promise<T[]> => {
@@ -223,13 +228,15 @@ export const importFromCSV = <T>(file: File): Promise<T[]> => {
 export const importAssetsFromCSV = (
   file: File
 ): Promise<Omit<Asset, "id">[]> => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
         try {
-          const transformedData = await transformAssetData(results.data);
+          const transformedData = await transformAssetData(
+            results.data as Record<string, unknown>[]
+          );
           resolve(transformedData);
         } catch (error) {
           reject(error);
@@ -250,7 +257,9 @@ export const importReceivablesFromCSV = (
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const transformedData = transformReceivableData(results.data);
+        const transformedData = transformReceivableData(
+          results.data as Record<string, unknown>[]
+        );
         resolve(transformedData);
       },
       error: (error) => {
@@ -268,7 +277,9 @@ export const importLicensesFromCSV = (
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const transformedData = transformLicenseData(results.data);
+        const transformedData = transformLicenseData(
+          results.data as Record<string, unknown>[]
+        );
         resolve(transformedData);
       },
       error: (error) => {

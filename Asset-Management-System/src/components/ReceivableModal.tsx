@@ -39,7 +39,7 @@ const ReceivableModal: React.FC<ReceivableModalProps> = ({
   receivable,
 }) => {
   const [formData, setFormData] = useState<
-    Omit<Receivable, "id"> & { purchaseDate?: Date }
+    Omit<Receivable, "id" | "purchaseDate"> & { purchaseDate?: Date }
   >({
     itemName: "",
     brand: "",

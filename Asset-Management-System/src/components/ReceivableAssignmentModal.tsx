@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import type { Receivable, ReceivableUser } from "../types/inventory";
-import { CalendarIcon, UserPlus } from "lucide-react";
+import {  UserPlus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,10 +12,10 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Calendar } from "./ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { format } from "date-fns";
-import { cn } from "../lib/utils";
+// import { Calendar } from "./ui/calendar";
+// import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+// import { format } from "date-fns";
+// import { cn } from "../lib/utils";
 import { Plus, Trash2, Edit2, Calendar as CalendarLucide } from "lucide-react";
 
 interface ReceivableAssignmentModalProps {

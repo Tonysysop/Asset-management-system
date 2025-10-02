@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import  { memo } from "react";
 import { Edit, Trash2, MoreVertical, UserPlus } from "lucide-react";
 import type { Receivable } from "../types/inventory";
 import ViewDetailsModal from "./ViewDetailsModal";
