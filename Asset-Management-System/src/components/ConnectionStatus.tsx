@@ -6,24 +6,25 @@ const ConnectionStatus: React.FC = () => {
   const [showStatus, setShowStatus] = useState(false);
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => {
+      setIsOnline(true);
+      setShowStatus(true);
+      setTimeout(() => setShowStatus(false), 3000);
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setShowStatus(true);
+      setTimeout(() => setShowStatus(false), 3000);
+    };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-
-    // Show status briefly when connection changes
-    if (!isOnline) {
-      setShowStatus(true);
-      const timer = setTimeout(() => setShowStatus(false), 3000);
-      return () => clearTimeout(timer);
-    }
 
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [isOnline]);
+  }, []); // Remove isOnline dependency to prevent infinite re-renders
 
   if (!showStatus && isOnline) return null;
 

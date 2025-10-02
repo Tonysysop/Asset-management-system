@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from "react";
-import type {
-  License,
-  LicenseStatus,
-  LicenseType,
-  LicenseUser,
-} from "../types/inventory";
-import { Calendar } from "lucide-react";
-import VolumeLicenseUserManager from "./VolumeLicenseUserManager";
+import type { License, LicenseType } from "../types/inventory";
+import { CalendarIcon, Key, Save, X, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +10,20 @@ import {
   DialogFooter,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { Calendar } from "./ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { format } from "date-fns";
+import { cn } from "../lib/utils";
 
 interface LicenseModalProps {
   isOpen: boolean;
@@ -30,18 +38,22 @@ const LicenseModal: React.FC<LicenseModalProps> = ({
   onSave,
   license,
 }) => {
-  const [formData, setFormData] = useState<Omit<License, "id">>({
+  const [formData, setFormData] = useState<
+    Omit<License, "id" | "purchaseDate" | "expiryDate" | "status"> & {
+      purchaseDate?: Date;
+      expiryDate?: Date;
+    }
+  >({
     licenseName: "",
     vendor: "",
     licenseKey: "",
     licenseType: "one-off",
     seats: 1,
-    purchaseDate: "",
-    expiryDate: "",
+    purchaseDate: undefined,
+    expiryDate: undefined,
     assignedUser: "",
     department: "",
     notes: "",
-    status: "active",
     assignedUsers: [],
   });
 
@@ -56,12 +68,21 @@ const LicenseModal: React.FC<LicenseModalProps> = ({
         licenseKey: license.licenseKey,
         licenseType: license.licenseType || "one-off",
         seats: license.seats,
-        purchaseDate: license.purchaseDate,
-        expiryDate: license.expiryDate,
+        purchaseDate: license.purchaseDate
+          ? (() => {
+              const date = new Date(license.purchaseDate);
+              return isNaN(date.getTime()) ? undefined : date;
+            })()
+          : undefined,
+        expiryDate: license.expiryDate
+          ? (() => {
+              const date = new Date(license.expiryDate);
+              return isNaN(date.getTime()) ? undefined : date;
+            })()
+          : undefined,
         assignedUser: license.assignedUser,
         department: license.department,
         notes: license.notes,
-        status: license.status,
         assignedUsers: license.assignedUsers || [],
       });
     } else {
@@ -71,12 +92,11 @@ const LicenseModal: React.FC<LicenseModalProps> = ({
         licenseKey: "",
         licenseType: "one-off",
         seats: 1,
-        purchaseDate: "",
-        expiryDate: "",
+        purchaseDate: undefined,
+        expiryDate: undefined,
         assignedUser: "",
         department: "",
         notes: "",
-        status: "active",
         assignedUsers: [],
       });
     }
@@ -103,17 +123,6 @@ const LicenseModal: React.FC<LicenseModalProps> = ({
       if (!formData.assignedUser.trim())
         newErrors.assignedUser =
           "Assigned user is required for one-off licenses";
-    } else if (formData.licenseType === "volume") {
-      if (!formData.assignedUsers || formData.assignedUsers.length === 0) {
-        newErrors.assignedUsers =
-          "At least one user must be assigned for volume licenses";
-      }
-      if (
-        formData.assignedUsers &&
-        formData.assignedUsers.length > formData.seats
-      ) {
-        newErrors.assignedUsers = `Cannot assign more users than available seats (${formData.seats})`;
-      }
     }
 
     setErrors(newErrors);
@@ -125,7 +134,17 @@ const LicenseModal: React.FC<LicenseModalProps> = ({
     if (validateForm()) {
       setIsSaving(true);
       try {
-        await onSave(formData);
+        // Convert dates back to string format for saving
+        const dataToSave = {
+          ...formData,
+          purchaseDate: formData.purchaseDate
+            ? formData.purchaseDate.toISOString().split("T")[0]
+            : "",
+          expiryDate: formData.expiryDate
+            ? formData.expiryDate.toISOString().split("T")[0]
+            : "",
+        };
+        await onSave(dataToSave);
         onClose();
       } finally {
         setIsSaving(false);
@@ -148,295 +167,356 @@ const LicenseModal: React.FC<LicenseModalProps> = ({
     }
   };
 
-  const handleAssignedUsersChange = (users: LicenseUser[]) => {
-    setFormData((prev) => ({ ...prev, assignedUsers: users }));
-    if (errors.assignedUsers) {
-      setErrors((prev) => ({ ...prev, assignedUsers: "" }));
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
-  const licenseStatuses: LicenseStatus[] = [
-    "active",
-    "expired",
-    "expiring-soon",
-  ];
+  const handleDateChange = (
+    field: "purchaseDate" | "expiryDate",
+    date: Date | undefined
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: date,
+    }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+  };
+
   const licenseTypes: LicenseType[] = ["one-off", "volume"];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="sm:max-w-2xl max-w-[calc(100%-2rem)] max-h-[85vh] bg-card border-border shadow-lg flex flex-col p-0">
+        <DialogHeader className="px-6 pt-4 pb-3">
+          <DialogTitle className="text-xl font-semibold text-card-foreground flex items-center gap-2">
+            <Key className="w-5 h-5" />
             {license ? "Edit License" : "Add New License"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm">
             {license
               ? "Update the details of this software license."
               : "Add a new software license to the inventory system."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto p-1">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                License Name *
-              </label>
-              <input
-                type="text"
-                name="licenseName"
-                value={formData.licenseName}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.licenseName ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.licenseName && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.licenseName}
-                </p>
-              )}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto px-6 pb-3 space-y-6">
+            {/* Basic Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label
+                  htmlFor="licenseName"
+                  className="text-sm font-medium text-foreground"
+                >
+                  License Name *
+                </Label>
+                <Input
+                  id="licenseName"
+                  type="text"
+                  name="licenseName"
+                  value={formData.licenseName}
+                  onChange={handleChange}
+                  className={`border-input focus:ring-1 focus:ring-ring bg-background ${
+                    errors.licenseName ? "border-red-500" : ""
+                  }`}
+                  placeholder="Enter license name"
+                />
+                {errors.licenseName && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.licenseName}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Label
+                  htmlFor="vendor"
+                  className="text-sm font-medium text-foreground"
+                >
+                  Vendor *
+                </Label>
+                <Input
+                  id="vendor"
+                  type="text"
+                  name="vendor"
+                  value={formData.vendor}
+                  onChange={handleChange}
+                  className={`border-input focus:ring-1 focus:ring-ring bg-background ${
+                    errors.vendor ? "border-red-500" : ""
+                  }`}
+                  placeholder="Enter vendor"
+                />
+                {errors.vendor && (
+                  <p className="text-red-500 text-xs mt-1">{errors.vendor}</p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-foreground">
+                  License Type *
+                </Label>
+                <Select
+                  value={formData.licenseType}
+                  onValueChange={(value) =>
+                    handleSelectChange("licenseType", value)
+                  }
+                >
+                  <SelectTrigger className="border-input focus:border-ring bg-background">
+                    <SelectValue placeholder="Select license type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    {licenseTypes.map((type) => (
+                      <SelectItem
+                        key={type}
+                        value={type}
+                        className="hover:bg-accent"
+                      >
+                        {type === "one-off"
+                          ? "One-Off License"
+                          : "Volume License"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label
+                  htmlFor="seats"
+                  className="text-sm font-medium text-foreground"
+                >
+                  Number of Seats *
+                </Label>
+                <Input
+                  id="seats"
+                  type="number"
+                  name="seats"
+                  value={formData.seats}
+                  onChange={handleChange}
+                  min="1"
+                  className={`border-input focus:ring-1 focus:ring-ring bg-background ${
+                    errors.seats ? "border-red-500" : ""
+                  }`}
+                />
+                {errors.seats && (
+                  <p className="text-red-500 text-xs mt-1">{errors.seats}</p>
+                )}
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Vendor *
-              </label>
-              <input
-                type="text"
-                name="vendor"
-                value={formData.vendor}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.vendor ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.vendor && (
-                <p className="text-red-500 text-xs mt-1">{errors.vendor}</p>
-              )}
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            {/* License Key - Full Width */}
+            <div className="space-y-1">
+              <Label
+                htmlFor="licenseKey"
+                className="text-sm font-medium text-foreground"
+              >
                 License Key / Activation Code *
-              </label>
-              <input
+              </Label>
+              <Input
+                id="licenseKey"
                 type="text"
                 name="licenseKey"
                 value={formData.licenseKey}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.licenseKey ? "border-red-500" : "border-gray-300"
+                className={`border-input focus:ring-1 focus:ring-ring bg-background ${
+                  errors.licenseKey ? "border-red-500" : ""
                 }`}
+                placeholder="Enter license key or activation code"
               />
               {errors.licenseKey && (
                 <p className="text-red-500 text-xs mt-1">{errors.licenseKey}</p>
               )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                License Type *
-              </label>
-              <select
-                name="licenseType"
-                value={formData.licenseType}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                {licenseTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type === "one-off" ? "One-Off License" : "Volume License"}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Number of Seats *
-              </label>
-              <input
-                type="number"
-                name="seats"
-                value={formData.seats}
-                onChange={handleChange}
-                min="1"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.seats ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.seats && (
-                <p className="text-red-500 text-xs mt-1">{errors.seats}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status *
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                {licenseStatuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status.replace("-", " ").toUpperCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Purchase Date *
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  name="purchaseDate"
-                  value={formData.purchaseDate}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                    errors.purchaseDate ? "border-red-500" : "border-gray-300"
-                  }`}
-                />
-                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-              {errors.purchaseDate && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.purchaseDate}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Expiry Date *
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  name="expiryDate"
-                  value={formData.expiryDate}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                    errors.expiryDate ? "border-red-500" : "border-gray-300"
-                  }`}
-                />
-                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-              {errors.expiryDate && (
-                <p className="text-red-500 text-xs mt-1">{errors.expiryDate}</p>
-              )}
-            </div>
-
-            {formData.licenseType === "one-off" && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Assigned User *
-                </label>
-                <input
-                  type="text"
-                  name="assignedUser"
-                  value={formData.assignedUser}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                    errors.assignedUser ? "border-red-500" : "border-gray-300"
-                  }`}
-                />
-                {errors.assignedUser && (
+            {/* Date Fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-foreground">
+                  Purchase Date *
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
+                        !formData.purchaseDate && "text-muted-foreground",
+                        errors.purchaseDate && "border-red-500"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formData.purchaseDate &&
+                      !isNaN(formData.purchaseDate.getTime())
+                        ? format(formData.purchaseDate, "PPP")
+                        : "Select purchase date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-auto p-0 bg-popover border-border"
+                    align="start"
+                  >
+                    <Calendar
+                      mode="single"
+                      selected={formData.purchaseDate}
+                      onSelect={(date) =>
+                        handleDateChange("purchaseDate", date)
+                      }
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.purchaseDate && (
                   <p className="text-red-500 text-xs mt-1">
-                    {errors.assignedUser}
+                    {errors.purchaseDate}
                   </p>
                 )}
               </div>
-            )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Department *
-              </label>
-              <input
-                type="text"
-                name="department"
-                value={formData.department}
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-foreground">
+                  Expiry Date *
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal border-input hover:bg-accent/50",
+                        !formData.expiryDate && "text-muted-foreground",
+                        errors.expiryDate && "border-red-500"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formData.expiryDate &&
+                      !isNaN(formData.expiryDate.getTime())
+                        ? format(formData.expiryDate, "PPP")
+                        : "Select expiry date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-auto p-0 bg-popover border-border"
+                    align="start"
+                  >
+                    <Calendar
+                      mode="single"
+                      selected={formData.expiryDate}
+                      onSelect={(date) => handleDateChange("expiryDate", date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.expiryDate && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.expiryDate}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Assignment Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {formData.licenseType === "one-off" && (
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="assignedUser"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Assigned User *
+                  </Label>
+                  <Input
+                    id="assignedUser"
+                    type="text"
+                    name="assignedUser"
+                    value={formData.assignedUser}
+                    onChange={handleChange}
+                    className={`border-input focus:ring-1 focus:ring-ring bg-background ${
+                      errors.assignedUser ? "border-red-500" : ""
+                    }`}
+                    placeholder="Enter assigned user"
+                  />
+                  {errors.assignedUser && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.assignedUser}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label
+                  htmlFor="department"
+                  className="text-sm font-medium text-foreground"
+                >
+                  Department *
+                </Label>
+                <Input
+                  id="department"
+                  type="text"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleChange}
+                  className={`border-input focus:ring-1 focus:ring-ring bg-background ${
+                    errors.department ? "border-red-500" : ""
+                  }`}
+                  placeholder="Enter department"
+                />
+                {errors.department && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.department}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label
+                htmlFor="notes"
+                className="text-sm font-medium text-foreground"
+              >
+                Notes
+              </Label>
+              <Textarea
+                id="notes"
+                name="notes"
+                value={formData.notes}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  errors.department ? "border-red-500" : "border-gray-300"
-                }`}
+                rows={2}
+                className="border-input focus:ring-1 focus:ring-ring bg-background"
+                placeholder="Enter additional notes (optional)"
               />
-              {errors.department && (
-                <p className="text-red-500 text-xs mt-1">{errors.department}</p>
-              )}
             </div>
           </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notes
-            </label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-
-          {formData.licenseType === "volume" && (
-            <div>
-              <VolumeLicenseUserManager
-                assignedUsers={formData.assignedUsers || []}
-                onUsersChange={handleAssignedUsersChange}
-                maxSeats={formData.seats}
-              />
-              {errors.assignedUsers && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.assignedUsers}
-                </p>
-              )}
-            </div>
-          )}
-
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 mt-3 px-6 py-3 border-t border-border bg-card">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
               disabled={isSaving}
+              className="border-border hover:bg-accent/50"
             >
+              <X className="w-4 h-4 mr-2" />
               Cancel
             </Button>
             <Button type="submit" disabled={isSaving}>
               {isSaving ? (
-                <svg
-                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              ) : license ? (
-                "Update License"
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
-                "Add License"
+                <Save className="w-4 h-4 mr-2" />
               )}
+              {isSaving
+                ? "Saving..."
+                : license
+                ? "Update License"
+                : "Add License"}
             </Button>
           </DialogFooter>
         </form>

@@ -7,6 +7,7 @@ import type {
   Receivable,
   ReceivableUser,
   License,
+  LicenseUser,
 } from "./types/inventory";
 import {
   exportToCSV,
@@ -22,6 +23,7 @@ import AssetModal from "./components/AssetModal";
 import ReceivableModal from "./components/ReceivableModal";
 import ReceivableAssignmentModal from "./components/ReceivableAssignmentModal";
 import LicenseModal from "./components/LicenseModal";
+import LicenseAssignmentModal from "./components/LicenseAssignmentModal";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
 import {
@@ -91,17 +93,16 @@ function AppContent() {
       const isAuditPath = window.location.pathname === "/audit";
       setUserRole(isAuditPath ? "auditor" : "admin");
     };
+
+    // Apply role immediately
     applyRoleFromPath();
+
+    // Listen for URL changes
     const onPopState = () => applyRoleFromPath();
     window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
 
-  // Ensure role matches URL right after login/logout
-  useEffect(() => {
-    const isAuditPath = window.location.pathname === "/audit";
-    setUserRole(isAuditPath ? "auditor" : "admin");
-  }, [currentUser]);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [currentUser]); // Only re-run when user changes (login/logout)
 
   // Note: URL controls role; we do not push URL changes based on role.
   // React Query automatically handles data fetching, no need for manual fetchAllData
@@ -166,6 +167,8 @@ function AppContent() {
   const [isReceivableAssignmentModalOpen, setIsReceivableAssignmentModalOpen] =
     useState(false);
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
+  const [isLicenseAssignmentModalOpen, setIsLicenseAssignmentModalOpen] =
+    useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | undefined>();
   const [editingReceivable, setEditingReceivable] = useState<
     Receivable | undefined
@@ -174,6 +177,9 @@ function AppContent() {
     Receivable | undefined
   >();
   const [editingLicense, setEditingLicense] = useState<License | undefined>();
+  const [assigningLicense, setAssigningLicense] = useState<
+    License | undefined
+  >();
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     id: string;
@@ -429,6 +435,30 @@ function AppContent() {
     }
   };
 
+  const handleAssignLicense = (license: License) => {
+    setAssigningLicense(license);
+    setIsLicenseAssignmentModalOpen(true);
+  };
+
+  const handleSaveLicenseAssignment = async (
+    licenseId: string,
+    assignedUsers: LicenseUser[]
+  ) => {
+    try {
+      await updateLicenseMutation.mutateAsync({
+        id: licenseId,
+        license: {
+          ...assigningLicense!,
+          assignedUsers: assignedUsers,
+        },
+        user: currentUser?.email || "Unknown User",
+      });
+      showToast("License assignments updated successfully", "success");
+    } catch {
+      showToast("Error updating license assignments", "error");
+    }
+  };
+
   const handleConfirmDelete = async () => {
     if (deleteConfirmation) {
       const { id, type } = deleteConfirmation;
@@ -657,6 +687,7 @@ function AppContent() {
               userRole={userRole}
               onEdit={handleEditLicense}
               onDelete={handleDeleteLicense}
+              onAssign={handleAssignLicense}
               onImport={handleImport}
               onAdd={handleAddLicense}
             />
@@ -706,6 +737,13 @@ function AppContent() {
           onClose={() => setIsLicenseModalOpen(false)}
           onSave={handleSaveLicense}
           license={editingLicense}
+        />
+
+        <LicenseAssignmentModal
+          isOpen={isLicenseAssignmentModalOpen}
+          onClose={() => setIsLicenseAssignmentModalOpen(false)}
+          onSave={handleSaveLicenseAssignment}
+          license={assigningLicense}
         />
 
         {deleteConfirmation && (
