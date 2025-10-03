@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
-import Toast, { type ToastType } from '../components/Toast';
+import React, { createContext,  useState } from "react";
+import Toast, { type ToastType } from "../components/Toast";
 
 interface ToastContextType {
   showToast: (message: string, type: ToastType) => void;
@@ -7,16 +7,15 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
-export function useToast() {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
-  }
-  return context;
-}
+// Hook moved to hooks/useToast.ts to resolve Fast Refresh issue
 
-export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const [toast, setToast] = useState<{
+    message: string;
+    type: ToastType;
+  } | null>(null);
 
   const showToast = (message: string, type: ToastType) => {
     setToast({ message, type });
@@ -29,7 +28,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={hideToast} />
+      )}
     </ToastContext.Provider>
   );
 };

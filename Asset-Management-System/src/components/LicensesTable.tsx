@@ -14,7 +14,7 @@ import { addLicenses } from "../services/licenseService";
 import ImportModal from "./ImportModal";
 import ViewDetailsModal from "./ViewDetailsModal";
 import { useAuth } from "../contexts/AuthContext";
-import { useToast } from "../contexts/ToastContext";
+import { useToast } from "../hooks/useToast";
 import {
   Pagination,
   PaginationContent,
@@ -60,7 +60,7 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
   onAdd,
 }) => {
   const { currentUser } = useAuth();
-  const { showToast } = useToast();
+  const { toast } = useToast();
   const [sortField, setSortField] = useState<keyof License>("licenseName");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -74,9 +74,16 @@ const LicensesTable: React.FC<LicensesTableProps> = ({
       }
       await addLicenses(data, currentUser.email || "");
       onImport();
-      showToast("Licenses imported successfully", "success");
+      toast({
+        title: "Import Success",
+        description: "Licenses imported successfully",
+      });
     } catch {
-      showToast("Error importing licenses", "error");
+      toast({
+        title: "Import Error",
+        description: "Error importing licenses",
+        variant: "destructive",
+      });
     }
   };
 

@@ -4,7 +4,7 @@ import { Upload, Plus } from "lucide-react";
 import ReceivableTableRow from "./ReceivableTableRow";
 import { useAddReceivables } from "../hooks/useReceivables";
 import ImportModal from "./ImportModal";
-import { useToast } from "../contexts/ToastContext";
+import { useToast } from "../hooks/useToast";
 import { useAuth } from "../contexts/AuthContext";
 import {
   Pagination,
@@ -41,7 +41,7 @@ const ReceivablesTable: React.FC<ReceivablesTableProps> = ({
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const { showToast } = useToast();
+  const { toast } = useToast();
   const { currentUser } = useAuth();
   const addReceivablesMutation = useAddReceivables();
 
@@ -53,12 +53,19 @@ const ReceivablesTable: React.FC<ReceivablesTableProps> = ({
           user: currentUser?.email || "unknown",
         });
         onImport();
-        showToast("Receivables imported successfully", "success");
+        toast({
+          title: "Import Success",
+          description: "Receivables imported successfully",
+        });
       } catch {
-        showToast("Error importing receivables", "error");
+        toast({
+          title: "Import Error",
+          description: "Error importing receivables",
+          variant: "destructive",
+        });
       }
     },
-    [addReceivablesMutation, currentUser?.email, onImport, showToast]
+    [addReceivablesMutation, currentUser?.email, onImport, toast]
   );
 
   const receivableSampleData = `itemName,brand,description,serialNumber,supplierName,purchaseDate,quantity,warranty,notes,status

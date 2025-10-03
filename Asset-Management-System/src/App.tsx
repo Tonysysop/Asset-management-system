@@ -35,7 +35,8 @@ import {
   History,
   ArchiveRestore,
 } from "lucide-react";
-import { ToastProvider, useToast } from "./contexts/ToastContext";
+import { ToastProvider } from "./contexts/ToastContext";
+import { useToast } from "./hooks/useToast";
 import AuditTrail from "./components/AuditTrail";
 import ConfirmationDialog from "./components/ConfirmationDialog";
 import RetrieveReasonDialog from "./components/RetrieveReasonDialog";
@@ -85,7 +86,7 @@ function AppContent() {
   const updateLicenseMutation = useUpdateLicense();
   const deleteLicenseMutation = useDeleteLicense();
   const [userRole, setUserRole] = useState<UserRole>("admin");
-  const { showToast } = useToast();
+  const { toast } = useToast();
 
   // Sync userRole with URL path (/ for admin, /audit for auditor)
   useEffect(() => {
@@ -112,7 +113,11 @@ function AppContent() {
       await logout();
     } catch (error) {
       console.error("Logout failed:", error);
-      showToast("Logout failed", "error");
+      toast({
+        title: "Logout Error",
+        description: "Logout failed",
+        variant: "destructive",
+      });
     }
   };
 
@@ -135,14 +140,18 @@ function AppContent() {
         retrieved,
         user: currentUser?.email || "Unknown User",
       });
-      showToast(
-        `Asset moved to Retrieved with status: ${
+      toast({
+        title: "Asset Retrieved",
+        description: `Asset moved to retrieved with status: ${
           reason === "repair" ? "out for repair" : reason
         }`,
-        "success"
-      );
+      });
     } catch {
-      showToast("Error retrieving asset", "error");
+      toast({
+        title: "Retrieval Error",
+        description: "Error retrieving asset",
+        variant: "destructive",
+      });
     } finally {
       setRetrieveReasonDialog({ isOpen: false, asset: null });
     }
@@ -313,21 +322,30 @@ function AppContent() {
             id: editingAsset.id,
             user: currentUser?.email || "Unknown User",
           });
-          showToast("Asset redeployed to Inventory", "success");
+          toast({
+            title: "Asset Redeployed",
+            description: "Asset redeployed to Inventory",
+          });
         } else {
           await updateAssetMutation.mutateAsync({
             id: editingAsset.id,
             asset: assetData,
             user: currentUser?.email || "Unknown User",
           });
-          showToast("Asset updated successfully", "success");
+          toast({
+            title: "Asset Updated",
+            description: "Asset updated successfully",
+          });
         }
       } else {
         await addAssetMutation.mutateAsync({
           asset: assetData,
           user: currentUser?.email || "Unknown User",
         });
-        showToast("Asset added successfully", "success");
+        toast({
+          title: "Asset Added",
+          description: "Asset added successfully",
+        });
       }
 
       // Reset redeploying state and close modal after successful save
@@ -336,7 +354,11 @@ function AppContent() {
       setEditingAsset(undefined);
     } catch (error) {
       console.error("Error saving asset:", error);
-      showToast("Error saving asset", "error");
+      toast({
+        title: "Save Error",
+        description: "Error saving asset",
+        variant: "destructive",
+      });
     }
   };
 
@@ -365,16 +387,26 @@ function AppContent() {
           receivable: receivableData,
           user: currentUser?.email || "Unknown User",
         });
-        showToast("Receivable updated successfully", "success");
+        toast({
+          title: "Receivable Updated",
+          description: "Receivable updated successfully",
+        });
       } else {
         await addReceivableMutation.mutateAsync({
           receivable: receivableData,
           user: currentUser?.email || "Unknown User",
         });
-        showToast("Receivable added successfully", "success");
+        toast({
+          title: "Receivable Added",
+          description: "Receivable added successfully",
+        });
       }
     } catch {
-      showToast("Error saving receivable", "error");
+      toast({
+        title: "Save Error",
+        description: "Error saving receivable",
+        variant: "destructive",
+      });
     }
   };
 
@@ -393,9 +425,16 @@ function AppContent() {
         receivable: { assignedUsers },
         user: currentUser?.email || "Unknown User",
       });
-      showToast("Receivable assignments updated successfully", "success");
+      toast({
+        title: "Receivables Updated",
+        description: "Receivable assignments updated successfully",
+      });
     } catch {
-      showToast("Error updating receivable assignments", "error");
+      toast({
+        title: "Update Error",
+        description: "Error updating receivable assignments",
+        variant: "destructive",
+      });
     }
   };
 
@@ -422,16 +461,26 @@ function AppContent() {
           license: licenseData,
           user: currentUser?.email || "Unknown User",
         });
-        showToast("License updated successfully", "success");
+        toast({
+          title: "License Updated",
+          description: "License updated successfully",
+        });
       } else {
         await addLicenseMutation.mutateAsync({
           license: licenseData,
           user: currentUser?.email || "Unknown User",
         });
-        showToast("License added successfully", "success");
+        toast({
+          title: "License Added",
+          description: "License added successfully",
+        });
       }
     } catch {
-      showToast("Error saving license", "error");
+      toast({
+        title: "Save Error",
+        description: "Error saving license",
+        variant: "destructive",
+      });
     }
   };
 
@@ -453,9 +502,16 @@ function AppContent() {
         },
         user: currentUser?.email || "Unknown User",
       });
-      showToast("License assignments updated successfully", "success");
+      toast({
+        title: "Licenses Updated",
+        description: "License assignments updated successfully",
+      });
     } catch {
-      showToast("Error updating license assignments", "error");
+      toast({
+        title: "Update Error",
+        description: "Error updating license assignments",
+        variant: "destructive",
+      });
     }
   };
 
@@ -468,22 +524,35 @@ function AppContent() {
             id,
             user: currentUser?.email || "Unknown User",
           });
-          showToast("Asset deleted successfully", "success");
+          toast({
+            title: "Asset Deleted",
+            description: "Asset deleted successfully",
+          });
         } else if (type === "receivable") {
           await deleteReceivableMutation.mutateAsync({
             id,
             user: currentUser?.email || "Unknown User",
           });
-          showToast("Receivable deleted successfully", "success");
+          toast({
+            title: "Receivable Deleted",
+            description: "Receivable deleted successfully",
+          });
         } else if (type === "license") {
           await deleteLicenseMutation.mutateAsync({
             id,
             user: currentUser?.email || "Unknown User",
           });
-          showToast("License deleted successfully", "success");
+          toast({
+            title: "License Deleted",
+            description: "License deleted successfully",
+          });
         }
       } catch {
-        showToast(`Error deleting ${type}`, "error");
+        toast({
+          title: "Delete Error",
+          description: `Error deleting ${type}`,
+          variant: "destructive",
+        });
       }
       setDeleteConfirmation(null);
     }
@@ -563,7 +632,7 @@ function AppContent() {
             <div className="flex space-x-8">
               <button
                 onClick={() => setCurrentView("dashboard")}
-                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
+                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 cursor-pointer ${
                   currentView === "dashboard"
                     ? "border-bua-red text-bua-red"
                     : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
@@ -574,7 +643,7 @@ function AppContent() {
               </button>
               <button
                 onClick={() => setCurrentView("inventory")}
-                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
+                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 cursor-pointer ${
                   currentView === "inventory"
                     ? "border-bua-red text-bua-red"
                     : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
@@ -585,7 +654,7 @@ function AppContent() {
               </button>
               <button
                 onClick={() => setCurrentView("receivables")}
-                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
+                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 cursor-pointer ${
                   currentView === "receivables"
                     ? "border-bua-red text-bua-red"
                     : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
@@ -596,7 +665,7 @@ function AppContent() {
               </button>
               <button
                 onClick={() => setCurrentView("licenses")}
-                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
+                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 cursor-pointer ${
                   currentView === "licenses"
                     ? "border-bua-red text-bua-red"
                     : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
@@ -607,7 +676,7 @@ function AppContent() {
               </button>
               <button
                 onClick={() => setCurrentView("retrieved")}
-                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
+                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 cursor-pointer ${
                   currentView === "retrieved"
                     ? "border-bua-red text-bua-red"
                     : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
@@ -619,7 +688,7 @@ function AppContent() {
               {userRole === "auditor" && (
                 <button
                   onClick={() => setCurrentView("audit")}
-                  className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 ${
+                  className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 cursor-pointer ${
                     currentView === "audit"
                       ? "border-bua-red text-bua-red"
                       : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"

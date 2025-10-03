@@ -43,97 +43,104 @@ const ImportModal: React.FC<ImportModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleFileParse = async (file: File) => {
-    setIsLoading(true);
-    setError(null);
-    setParsedData(null);
-    setTransformedData(null);
+  const handleFileParse = useCallback(
+    async (file: File) => {
+      setIsLoading(true);
+      setError(null);
+      setParsedData(null);
+      setTransformedData(null);
 
-    try {
-      let data: unknown[];
+      try {
+        let data: unknown[];
 
-      // Use specialized import functions with date transformation
-      switch (importType) {
-        case "assets":
-          data = await importAssetsFromCSV(file);
-          break;
-        case "receivables":
-          data = await importReceivablesFromCSV(file);
-          break;
-        case "licenses":
-          data = await importLicensesFromCSV(file);
-          break;
-        default:
-          // Fallback to original parsing for other types
-          Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (results) => {
-              const headers = results.meta.fields;
-              if (JSON.stringify(headers) !== JSON.stringify(expectedHeaders)) {
-                setError(
-                  `Invalid CSV structure. Please ensure the headers are: ${expectedHeaders.join(
-                    ", "
-                  )}`
-                );
+        // Use specialized import functions with date transformation
+        switch (importType) {
+          case "assets":
+            data = await importAssetsFromCSV(file);
+            break;
+          case "receivables":
+            data = await importReceivablesFromCSV(file);
+            break;
+          case "licenses":
+            data = await importLicensesFromCSV(file);
+            break;
+          default:
+            // Fallback to original parsing for other types
+            Papa.parse(file, {
+              header: true,
+              skipEmptyLines: true,
+              complete: (results) => {
+                const headers = results.meta.fields;
+                if (
+                  JSON.stringify(headers) !== JSON.stringify(expectedHeaders)
+                ) {
+                  setError(
+                    `Invalid CSV structure. Please ensure the headers are: ${expectedHeaders.join(
+                      ", "
+                    )}`
+                  );
+                  setIsLoading(false);
+                  return;
+                }
+                setParsedData(results.data);
+                setTransformedData(results.data);
+                setError(null);
                 setIsLoading(false);
-                return;
-              }
-              setParsedData(results.data);
-              setTransformedData(results.data);
-              setError(null);
-              setIsLoading(false);
-            },
-            error: () => {
-              setError("Error parsing CSV file.");
-              setIsLoading(false);
-            },
-          });
-          return;
-      }
-
-      // For specialized imports, we still need to validate headers
-      // Parse again just to get headers for validation
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: async (results) => {
-          const headers = results.meta.fields;
-          if (JSON.stringify(headers) !== JSON.stringify(expectedHeaders)) {
-            setError(
-              `Invalid CSV structure. Please ensure the headers are: ${expectedHeaders.join(
-                ", "
-              )}`
-            );
+              },
+              error: () => {
+                setError("Error parsing CSV file.");
+                setIsLoading(false);
+              },
+            });
             return;
-          }
-          // Store the transformed data for import
-          setTransformedData(data);
+        }
 
-          // For assets, show raw data in preview (tags will be generated on import)
-          if (importType === "assets") {
-            // Add placeholder assetTag column for preview
-            const previewData = results.data.map((item: any) => ({
-              ...item,
-              assetTag: "[Auto-generated]",
-            }));
-            setParsedData(previewData);
-          } else {
-            setParsedData(data);
-          }
-          setError(null);
-          setIsLoading(false);
-        },
-        error: () => {
-          setError("Error parsing CSV file.");
-          setIsLoading(false);
-        },
-      });
-    } catch (error) {
-      setError("Error processing CSV file with date transformation.");
-      setIsLoading(false);
-    }
-  };
+        // For specialized imports, we still need to validate headers
+        // Parse again just to get headers for validation
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: async (results) => {
+            const headers = results.meta.fields;
+            if (JSON.stringify(headers) !== JSON.stringify(expectedHeaders)) {
+              setError(
+                `Invalid CSV structure. Please ensure the headers are: ${expectedHeaders.join(
+                  ", "
+                )}`
+              );
+              return;
+            }
+            // Store the transformed data for import
+            setTransformedData(data);
+
+            // For assets, show raw data in preview (tags will be generated on import)
+            if (importType === "assets") {
+              // Add placeholder assetTag column for preview
+              const previewData = (
+                results.data as Record<string, unknown>[]
+              ).map((item) => ({
+                ...item,
+                assetTag: "[Auto-generated]",
+              }));
+              setParsedData(previewData);
+            } else {
+              setParsedData(data);
+            }
+            setError(null);
+            setIsLoading(false);
+          },
+          error: () => {
+            setError("Error parsing CSV file.");
+            setIsLoading(false);
+          },
+        });
+      } catch {
+        setError("Error processing CSV file with date transformation.");
+        setIsLoading(false);
+      }
+    },
+    [importType, expectedHeaders]
+  );
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();

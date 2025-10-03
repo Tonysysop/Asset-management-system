@@ -13,7 +13,7 @@ import {
 } from "./ui/pagination";
 import { useAddAssets } from "../hooks/useAssets";
 import ImportModal from "./ImportModal";
-import { useToast } from "../contexts/ToastContext";
+import { useToast } from "../hooks/useToast";
 import { useAuth } from "../contexts/AuthContext";
 import ConfirmationDialog from "./ConfirmationDialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead } from "./ui/table";
@@ -44,7 +44,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const { showToast } = useToast();
+  const { toast } = useToast();
   const { currentUser } = useAuth();
   const [assetToRetrieve, setAssetToRetrieve] = useState<Asset | null>(null);
   const addAssetsMutation = useAddAssets();
@@ -59,21 +59,31 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         });
         onImport();
         if (skippedAssetTags.length > 0) {
-          showToast(
-            `Skipped duplicate asset tags: ${skippedAssetTags.join(", ")}`,
-            "warning"
-          );
+          toast({
+            title: "Import Warning",
+            description: `Skipped duplicate asset tags: ${skippedAssetTags.join(
+              ", "
+            )}`,
+            variant: "destructive",
+          });
         } else {
-          showToast("All assets imported successfully", "success");
+          toast({
+            title: "Import Success",
+            description: "All assets imported successfully",
+          });
         }
       } catch (error) {
         console.error("Import error:", error);
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error occurred";
-        showToast(`Error importing assets: ${errorMessage}`, "error");
+        toast({
+          title: "Import Error",
+          description: `Error importing assets: ${errorMessage}`,
+          variant: "destructive",
+        });
       }
     },
-    [addAssetsMutation, currentUser?.email, onImport, showToast]
+    [addAssetsMutation, currentUser?.email, onImport, toast]
   );
 
   const assetSampleData = `serialNumber,type,computeType,peripheralType,networkType,brand,model,specifications,warrantyExpiry,vendor,assignedUser,department,status,location,notes,deployedDate,imeiNumber,screenSize,resolution,connectionType,firmwareVersion,ipAddress,macAddress,numberOfPorts,powerSupply,serverRole,installedApplications
