@@ -35,6 +35,8 @@ export interface Asset {
   warrantyExpiry: string;
   vendor: string;
   assignedUser: string;
+  staffId?: string;
+  emailAddress?: string;
   department: string;
   status: AssetStatus;
   location: string;

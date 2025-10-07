@@ -53,6 +53,8 @@ interface AssetFormData {
   warrantyExpiration: Date | undefined;
   vendor: string;
   assignedUser: string;
+  staffId?: string;
+  emailAddress?: string;
   department: string;
   location: string;
   specifications: string;
@@ -103,6 +105,8 @@ const initialFormData: AssetFormData = {
   warrantyExpiration: undefined,
   vendor: "",
   assignedUser: "",
+  staffId: "",
+  emailAddress: "",
   department: "",
   location: "",
   specifications: "",
@@ -187,6 +191,13 @@ const serverRoles = [
   { value: "print-server", label: "Print Server" },
 ];
 
+const emailDomains = [
+  { value: "@buagroup.com", label: "@buagroup.com" },
+  { value: "@asrafrica.org", label: "@asrafrica.org" },
+  { value: "@buafoodsplc.com", label: "@buafoodsplc.com" },
+  { value: "@buacement.com", label: "@buacement.com" },
+];
+
 export const AssetFormModal = memo(function AssetFormModal({
   isOpen,
   onClose,
@@ -195,6 +206,7 @@ export const AssetFormModal = memo(function AssetFormModal({
   isRedeploying = false,
 }: AssetFormModalProps) {
   const [formData, setFormData] = useState<AssetFormData>(initialFormData);
+  const [emailDomain, setEmailDomain] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -251,6 +263,8 @@ export const AssetFormModal = memo(function AssetFormModal({
           : undefined,
         vendor: asset.vendor || "",
         assignedUser: asset.assignedUser || "",
+        staffId: asset.staffId || "",
+        emailAddress: asset.emailAddress || "",
         department: asset.department || "",
         location: asset.location || "",
         specifications: asset.specifications || "",
@@ -282,8 +296,17 @@ export const AssetFormModal = memo(function AssetFormModal({
         serverRole: asset.serverRole || "",
         installedApplications: asset.installedApplications || "",
       });
+
+      // Parse email domain from emailAddress
+      if (asset.emailAddress) {
+        const domainMatch = asset.emailAddress.match(/@(.+)$/);
+        if (domainMatch) {
+          setEmailDomain(`@${domainMatch[1]}`);
+        }
+      }
     } else {
       setFormData(initialFormData);
+      setEmailDomain("");
     }
   }, [asset]);
 
@@ -367,6 +390,27 @@ export const AssetFormModal = memo(function AssetFormModal({
       ...prev,
       [field]: date,
     }));
+  };
+
+  const handleEmailChange = (emailPrefix: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      emailAddress:
+        emailPrefix && emailDomain ? `${emailPrefix}${emailDomain}` : "",
+    }));
+  };
+
+  const handleEmailDomainChange = (domain: string) => {
+    setEmailDomain(domain);
+    setFormData((prev) => {
+      const emailPrefix = prev.emailAddress
+        ? prev.emailAddress.split("@")[0]
+        : "";
+      return {
+        ...prev,
+        emailAddress: emailPrefix && domain ? `${emailPrefix}${domain}` : "",
+      };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -469,6 +513,8 @@ export const AssetFormModal = memo(function AssetFormModal({
           formData.warrantyExpiration?.toISOString().split("T")[0] || "",
         vendor: formData.vendor,
         assignedUser: formData.assignedUser,
+        staffId: formData.staffId,
+        emailAddress: formData.emailAddress,
         department: formData.department,
         status: formData.status as AssetStatus,
         location: formData.location,
@@ -1431,6 +1477,65 @@ export const AssetFormModal = memo(function AssetFormModal({
                     placeholder="Enter assigned user"
                     className="border-input focus:border-ring bg-background"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="staffId"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Staff ID
+                  </Label>
+                  <Input
+                    id="staffId"
+                    value={formData.staffId || ""}
+                    onChange={(e) =>
+                      handleInputChange("staffId", e.target.value)
+                    }
+                    placeholder="Enter staff ID"
+                    className="border-input focus:border-ring bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="emailAddress"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Email Address
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="emailAddress"
+                      value={
+                        formData.emailAddress
+                          ? formData.emailAddress.split("@")[0]
+                          : ""
+                      }
+                      onChange={(e) => handleEmailChange(e.target.value)}
+                      placeholder="Enter email prefix"
+                      className="border-input focus:border-ring bg-background flex-1"
+                    />
+                    <Select
+                      value={emailDomain}
+                      onValueChange={handleEmailDomainChange}
+                    >
+                      <SelectTrigger className="border-input focus:border-ring bg-background w-48">
+                        <SelectValue placeholder="Select domain" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border">
+                        {emailDomains.map((domain) => (
+                          <SelectItem
+                            key={domain.value}
+                            value={domain.value}
+                            className="hover:bg-accent"
+                          >
+                            {domain.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="space-y-2">

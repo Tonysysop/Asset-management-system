@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { safeFormatDate, isValidDate } from "../utils/dateUtils";
 import {
   Edit,
@@ -13,9 +13,12 @@ import {
   Server,
   Router,
   Tablet,
+  Eye,
+  History,
 } from "lucide-react";
 import type { Asset } from "../types/inventory";
 import ViewDetailsModal from "./ViewDetailsModal";
+import AssetTrailModal from "./AssetTrailModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +46,7 @@ const AssetTableRow = memo<AssetTableRowProps>(
     onRetrieve,
     isRetrievedView = false,
   }) => {
+    const [isTrailModalOpen, setIsTrailModalOpen] = useState(false);
     const getAssetIcon = (type: string) => {
       switch (type.toLowerCase()) {
         case "laptop":
@@ -202,7 +206,35 @@ const AssetTableRow = memo<AssetTableRowProps>(
         )}
         {userRole === "auditor" && (
           <TableCell>
-            <ViewDetailsModal item={asset} title="Asset Details" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Eye className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                onCloseAutoFocus={(e) => {
+                  e.preventDefault();
+                }}
+              >
+                <DropdownMenuItem>
+                  <ViewDetailsModal item={asset} title="Asset Details" />
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsTrailModalOpen(true);
+                  }}
+                >
+                  <History className="w-4 h-4 mr-2" /> Trail
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <AssetTrailModal
+              asset={asset}
+              isOpen={isTrailModalOpen}
+              onClose={() => setIsTrailModalOpen(false)}
+            />
           </TableCell>
         )}
       </TableRow>
