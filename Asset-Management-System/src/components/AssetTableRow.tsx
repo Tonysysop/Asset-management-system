@@ -99,7 +99,7 @@ const AssetTableRow = memo<AssetTableRowProps>(
 
     return (
       <TableRow key={asset.id}>
-        <TableCell>
+        <TableCell className="pl-6">
           <div className="flex items-center gap-2">
             {getAssetIcon(asset.type)}
             <div>

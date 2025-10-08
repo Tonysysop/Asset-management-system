@@ -250,7 +250,10 @@ SN-009,switch,,,,"Netgear","GS108T","8-Port Gigabit",2026-09-14,"Netgear Inc.","
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead onClick={() => handleSort("assetTag")}>
+                <TableHead
+                  className="pl-6"
+                  onClick={() => handleSort("assetTag")}
+                >
                   Asset Tag
                 </TableHead>
                 <TableHead onClick={() => handleSort("type")}>Type</TableHead>

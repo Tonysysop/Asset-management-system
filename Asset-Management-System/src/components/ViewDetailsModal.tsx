@@ -18,6 +18,8 @@ import {
   Clock,
   AlertCircle,
   Users,
+  Mail,
+  IdCard,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { ReceivableUser, Receivable } from "../types/inventory";
@@ -47,6 +49,8 @@ const formatFieldName = (key: string): string => {
     licenseName: "License Name",
     licenseKey: "License Key",
     assignedUser: "Assigned User",
+    staffId: "Staff ID",
+    emailAddress: "Email Address",
     warrantyExpiry: "Warranty Expiry",
     warrantyExpiration: "Warranty Expiration",
     deployedDate: "Deployed Date",
@@ -89,6 +93,17 @@ const formatFieldName = (key: string): string => {
     assetId: "Asset ID",
     licenseId: "License ID",
     receivableId: "Receivable ID",
+    // Access Point specific fields
+    specificPhysicalLocation: "Specific Physical Location",
+    ipAssignment: "IP Assignment",
+    managementMethod: "Management Method",
+    controllerName: "Controller Name",
+    controllerAddress: "Controller Address",
+    powerSource: "Power Source",
+    connectedSwitchName: "Connected Switch Name",
+    connectedSwitchPort: "Connected Switch Port",
+    ssidsBroadcasted: "SSIDs Broadcasted",
+    frequencyBands: "Frequency Bands",
   };
 
   return (
@@ -103,6 +118,8 @@ const getFieldIcon = (key: string) => {
     assetTag: <Tag className="w-4 h-4" />,
     serialNumber: <Package className="w-4 h-4" />,
     assignedUser: <User className="w-4 h-4" />,
+    staffId: <IdCard className="w-4 h-4" />,
+    emailAddress: <Mail className="w-4 h-4" />,
     warrantyExpiry: <Calendar className="w-4 h-4" />,
     warrantyExpiration: <Calendar className="w-4 h-4" />,
     deployedDate: <Calendar className="w-4 h-4" />,
@@ -183,10 +200,11 @@ const getStatusBadgeVariant = (key: string, value: string) => {
   return "secondary";
 };
 
-// Helper function to check if field is applicable to asset type
+// Helper function to check if field is applicable to asset type and subtype
 const isFieldApplicable = (
   key: string,
   assetType: string,
+  assetSubtype: string,
   value: unknown
 ): boolean => {
   // Always show basic fields
@@ -194,88 +212,124 @@ const isFieldApplicable = (
     "id",
     "assetTag",
     "serialNumber",
-    "itemName",
-    "licenseName",
     "brand",
     "model",
     "type",
-    "category",
     "status",
     "specifications",
-    "computerName",
+    "description",
+    "notes",
   ];
   if (basicFields.includes(key)) return true;
 
-  // Always show assignment and date fields
-  const commonFields = [
-    "assignedUser",
-    "department",
-    "location",
-    "vendor",
-    "supplierName",
+  // Always show date fields
+  const dateFields = [
     "deployedDate",
     "purchaseDate",
     "retrievedDate",
     "warrantyExpiry",
     "warrantyExpiration",
     "timestamp",
-    "notes",
-    "description",
   ];
-  if (commonFields.includes(key)) return true;
+  if (dateFields.includes(key)) return true;
 
   // Don't show empty or null values
   if (!value || value === "" || value === "N/A") return false;
 
-  // Type-specific field visibility
+  // Show assignment fields only for non-network devices
+  const assignmentFields = [
+    "assignedUser",
+    "staffId",
+    "emailAddress",
+    "department",
+  ];
+  if (assignmentFields.includes(key)) {
+    return assetType?.toLowerCase() !== "network";
+  }
+
+  // Show location and vendor for all asset types
+  if (["location", "vendor"].includes(key)) return true;
+
+  // Type-specific field visibility based on new structure
   switch (assetType?.toLowerCase()) {
-    case "laptop":
-    case "desktop":
-    case "mobile":
-      return [
+    case "compute":
+      // Compute-specific fields
+      const computeFields = [
         "computeType",
+        "computerName",
         "hostname",
         "processor",
         "ramSize",
-        "storageSize",
+        "storage",
         "operatingSystem",
         "imeiNumber",
-      ].includes(key);
+      ];
 
-    case "printer":
-    case "scanner":
-      return ["peripheralType", "printerType", "connectionType"].includes(key);
+      if (computeFields.includes(key)) return true;
 
-    case "monitor":
-      return [
-        "peripheralType",
-        "screenSize",
-        "resolution",
-        "connectionType",
-      ].includes(key);
+      // Server-specific fields
+      if (assetSubtype?.toLowerCase() === "server") {
+        const serverFields = [
+          "productionIpAddress",
+          "managementMacAddress",
+          "powerSupply",
+          "serverRole",
+          "installedApplications",
+        ];
+        return serverFields.includes(key);
+      }
 
-    case "server":
-      return [
-        "hostname",
-        "processor",
-        "ramSize",
-        "storageSize",
-        "operatingSystem",
-        "powerSupply",
-        "serverRole",
-        "installedApplications",
-      ].includes(key);
+      return false;
 
-    case "router":
-    case "switch":
-      return [
+    case "peripheral":
+      // Peripheral-specific fields
+      const peripheralFields = ["peripheralType", "itemName"];
+
+      if (peripheralFields.includes(key)) return true;
+
+      // Monitor-specific fields
+      if (assetSubtype?.toLowerCase() === "monitor") {
+        const monitorFields = ["screenSize", "resolution", "connectionType"];
+        return monitorFields.includes(key);
+      }
+
+      return false;
+
+    case "network":
+      // Network-specific fields
+      const networkFields = [
         "networkType",
         "firmwareVersion",
         "ipAddress",
         "macAddress",
         "numberOfPorts",
-        "connectionType",
-      ].includes(key);
+        "rackPosition",
+        "configBackupLocation",
+        "uplinkDownlinkInfo",
+        "poeSupport",
+        "stackClusterMembership",
+      ];
+
+      if (networkFields.includes(key)) return true;
+
+      // Access Point specific fields
+      if (assetSubtype?.toLowerCase() === "access_point") {
+        const accessPointFields = [
+          "specificPhysicalLocation",
+          "ipAssignment",
+          "managementMethod",
+          "controllerName",
+          "controllerAddress",
+          "powerSource",
+          "connectedSwitchName",
+          "connectedSwitchPort",
+          "ssidsBroadcasted",
+          "frequencyBands",
+        ];
+        return accessPointFields.includes(key);
+      }
+
+      return false;
 
     default:
       // For unknown types, show all fields that have values
@@ -356,6 +410,16 @@ const renderAssignedUsers = (assignedUsers: ReceivableUser[]) => {
 const categorizeFields = (item: Record<string, unknown>) => {
   const assetType = String(item.type || "").toLowerCase();
 
+  // Determine asset subtype based on asset type and available fields
+  let assetSubtype = "";
+  if (assetType === "compute") {
+    assetSubtype = String(item.computeType || "").toLowerCase();
+  } else if (assetType === "peripheral") {
+    assetSubtype = String(item.peripheralType || "").toLowerCase();
+  } else if (assetType === "network") {
+    assetSubtype = String(item.networkType || "").toLowerCase();
+  }
+
   const categories = {
     basic: [] as Array<[string, unknown]>,
     technical: [] as Array<[string, unknown]>,
@@ -369,7 +433,7 @@ const categorizeFields = (item: Record<string, unknown>) => {
     if (key === "assignedUsers") return;
 
     // Skip non-applicable fields
-    if (!isFieldApplicable(key, assetType, value)) return;
+    if (!isFieldApplicable(key, assetType, assetSubtype, value)) return;
 
     if (
       [
@@ -392,29 +456,53 @@ const categorizeFields = (item: Record<string, unknown>) => {
         "computeType",
         "peripheralType",
         "networkType",
+        "computerName",
         "hostname",
         "processor",
         "ramSize",
-        "storageSize",
+        "storage",
         "operatingSystem",
-        "specifications",
         "screenSize",
         "resolution",
-        "printerType",
-        "numberOfPorts",
-        "powerSupply",
-        "serverRole",
-        "installedApplications",
+        "connectionType",
+        "itemName",
         "imeiNumber",
         "firmwareVersion",
         "ipAddress",
         "macAddress",
-        "connectionType",
+        "numberOfPorts",
+        "rackPosition",
+        "configBackupLocation",
+        "uplinkDownlinkInfo",
+        "poeSupport",
+        "stackClusterMembership",
+        "powerSupply",
+        "serverRole",
+        "installedApplications",
+        "productionIpAddress",
+        "managementMacAddress",
+        // Access Point specific fields
+        "specificPhysicalLocation",
+        "ipAssignment",
+        "managementMethod",
+        "controllerName",
+        "controllerAddress",
+        "powerSource",
+        "connectedSwitchName",
+        "connectedSwitchPort",
+        "ssidsBroadcasted",
+        "frequencyBands",
       ].includes(key)
     ) {
       categories.technical.push([key, value]);
     } else if (
-      ["assignedUser", "department", "location", "supplierName"].includes(key)
+      [
+        "assignedUser",
+        "staffId",
+        "emailAddress",
+        "department",
+        "location",
+      ].includes(key)
     ) {
       categories.assignment.push([key, value]);
     } else if (
@@ -428,19 +516,20 @@ const categorizeFields = (item: Record<string, unknown>) => {
       ].includes(key)
     ) {
       categories.dates.push([key, value]);
-    } else if (key === "vendor") {
+    } else if (["vendor", "supplierName"].includes(key)) {
       categories.other.push([key, value]);
     } else {
       categories.other.push([key, value]);
     }
   });
 
-  // Sort assignment fields in the desired order: assignedUser, department, location, supplierName
+  // Sort assignment fields in the desired order: assignedUser, staffId, emailAddress, department, location
   const assignmentOrder = [
     "assignedUser",
+    "staffId",
+    "emailAddress",
     "department",
     "location",
-    "supplierName",
   ];
   categories.assignment.sort((a, b) => {
     const aIndex = assignmentOrder.indexOf(a[0]);

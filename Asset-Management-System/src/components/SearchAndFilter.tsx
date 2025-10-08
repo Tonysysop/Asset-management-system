@@ -191,7 +191,9 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
 
             {/* Department Filter */}
             <Select
-              value={selectedDepartment || "all"}
+              value={
+                selectedDepartment === "" ? "all" : selectedDepartment || "all"
+              }
               onValueChange={(value) =>
                 onDepartmentChange(value === "all" ? "" : value)
               }

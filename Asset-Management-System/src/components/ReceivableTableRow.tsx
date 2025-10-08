@@ -1,4 +1,4 @@
-import  { memo } from "react";
+import { memo } from "react";
 import { Edit, Trash2, MoreVertical, UserPlus } from "lucide-react";
 import type { Receivable } from "../types/inventory";
 import ViewDetailsModal from "./ViewDetailsModal";
@@ -40,7 +40,7 @@ const ReceivableTableRow = memo<ReceivableTableRowProps>(
 
     return (
       <TableRow key={receivable.id}>
-        <TableCell>
+        <TableCell className="pl-6">
           <div className="font-medium">{receivable.itemName}</div>
           <div className="text-sm text-muted-foreground">
             {receivable.description}

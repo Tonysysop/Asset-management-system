@@ -28,6 +28,25 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
 import type { Asset, AssetType, AssetStatus } from "@/types/inventory";
+import {
+  ComputeTypeField,
+  ComputeAdditionalFields,
+} from "./asset-form/ComputeFields";
+import {
+  PeripheralTypeField,
+  PeripheralAdditionalFields,
+  MonitorSpecifications,
+} from "./asset-form/PeripheralFields";
+import {
+  NetworkTypeField,
+  NetworkConfiguration,
+} from "./asset-form/NetworkFields";
+import { AccessPointFields } from "./asset-form/AccessPointFields";
+import {
+  ServerTypeField,
+  ServerAdditionalFields,
+  ServerConfiguration,
+} from "./asset-form/ServerFields";
 
 interface AssetFormModalProps {
   isOpen: boolean;
@@ -75,6 +94,20 @@ interface AssetFormData {
   uplinkDownlinkInfo?: string;
   poeSupport?: string;
   stackClusterMembership?: string;
+
+  // Access Point specific fields
+  manufacturer?: string;
+  modelNumber?: string;
+  specificPhysicalLocation?: string;
+  ipAssignment?: string;
+  managementMethod?: string;
+  controllerName?: string;
+  controllerAddress?: string;
+  powerSource?: string;
+  connectedSwitchName?: string;
+  connectedSwitchPort?: string;
+  ssidsBroadcasted?: string;
+  frequencyBands?: string;
 
   // Server specific fields
   hostname?: string;
@@ -128,6 +161,20 @@ const initialFormData: AssetFormData = {
   poeSupport: "",
   stackClusterMembership: "",
 
+  // Access Point specific fields
+  manufacturer: "",
+  modelNumber: "",
+  specificPhysicalLocation: "",
+  ipAssignment: "",
+  managementMethod: "",
+  controllerName: "",
+  controllerAddress: "",
+  powerSource: "",
+  connectedSwitchName: "",
+  connectedSwitchPort: "",
+  ssidsBroadcasted: "",
+  frequencyBands: "",
+
   // Server specific fields
   hostname: "",
   processor: "",
@@ -154,41 +201,11 @@ const statusOptions = [
   { value: "spare", label: "Spare" },
 ];
 
-const computeTypes = [
-  { value: "laptop", label: "Laptop" },
-  { value: "desktop", label: "Desktop" },
-  { value: "mobile", label: "Mobile" },
-  { value: "server", label: "Server" },
-];
+// Constants moved to individual field components
 
-const peripheralTypes = [
-  { value: "printer", label: "Printer" },
-  { value: "scanner", label: "Scanner" },
-  { value: "monitor", label: "Monitor" },
-];
+// connectionTypes moved to PeripheralFields component
 
-const networkTypes = [
-  { value: "router", label: "Router" },
-  { value: "switch", label: "Switch" },
-];
-
-const connectionTypes = [
-  { value: "hdmi", label: "HDMI" },
-  { value: "displayport", label: "DisplayPort" },
-  { value: "vga", label: "VGA" },
-  { value: "dvi", label: "DVI" },
-  { value: "usb-c", label: "USB-C" },
-];
-
-const serverRoles = [
-  { value: "domain-controller", label: "Domain Controller" },
-  { value: "file-server", label: "File Server" },
-  { value: "web-server", label: "Web Server" },
-  { value: "database-server", label: "Database Server" },
-  { value: "vm-host", label: "VM Host" },
-  { value: "backup-server", label: "Backup Server" },
-  { value: "print-server", label: "Print Server" },
-];
+// serverRoles moved to ServerFields component
 
 const emailDomains = [
   { value: "@buagroup.com", label: "@buagroup.com" },
@@ -211,7 +228,8 @@ export const AssetFormModal = memo(function AssetFormModal({
 
   // Populate form when editing an asset
   useEffect(() => {
-    if (asset) {
+    if (asset && isOpen) {
+      console.log("AssetModal: Populating form with asset data:", asset);
       setFormData({
         serialNumber: asset.serialNumber || "",
         assetType: asset.type
@@ -219,29 +237,24 @@ export const AssetFormModal = memo(function AssetFormModal({
             ? "compute"
             : ["printer", "scanner", "monitor"].includes(asset.type)
             ? "peripheral"
-            : ["router", "switch"].includes(asset.type)
+            : ["router", "switch", "access_point"].includes(asset.type)
             ? "network"
             : asset.type
           : "",
         computeType:
           asset.computeType ||
-          (asset.type === "laptop" ||
-          asset.type === "desktop" ||
-          asset.type === "mobile" ||
-          asset.type === "server"
+          (["laptop", "desktop", "mobile", "server"].includes(asset.type || "")
             ? asset.type
             : ""),
-        imeiNumber: "",
+        imeiNumber: asset.imeiNumber || "",
         peripheralType:
           asset.peripheralType ||
-          (asset.type === "printer" ||
-          asset.type === "scanner" ||
-          asset.type === "monitor"
+          (["printer", "scanner", "monitor"].includes(asset.type || "")
             ? asset.type
             : ""),
         networkType:
           asset.networkType ||
-          (asset.type === "router" || asset.type === "switch"
+          (["router", "switch", "access_point"].includes(asset.type || "")
             ? asset.type
             : ""),
         itemName: asset.itemName || "",
@@ -294,6 +307,31 @@ export const AssetFormModal = memo(function AssetFormModal({
         powerSupply: asset.powerSupply || "",
         serverRole: asset.serverRole || "",
         installedApplications: asset.installedApplications || "",
+        // Access Point specific fields
+        specificPhysicalLocation: asset.specificPhysicalLocation || "",
+        ipAssignment: asset.ipAssignment || "",
+        managementMethod: asset.managementMethod || "",
+        controllerName: asset.controllerName || "",
+        controllerAddress: asset.controllerAddress || "",
+        powerSource: asset.powerSource || "",
+        connectedSwitchName: asset.connectedSwitchName || "",
+        connectedSwitchPort: asset.connectedSwitchPort || "",
+        ssidsBroadcasted: asset.ssidsBroadcasted || "",
+        frequencyBands: asset.frequencyBands || "",
+      });
+
+      console.log("AssetModal: Form data set for Access Point:", {
+        assetType: asset.type,
+        networkType: asset.networkType || asset.type,
+        specificPhysicalLocation: asset.specificPhysicalLocation,
+        ipAssignment: asset.ipAssignment,
+        managementMethod: asset.managementMethod,
+        controllerName: asset.controllerName,
+        powerSource: asset.powerSource,
+        connectedSwitchName: asset.connectedSwitchName,
+        connectedSwitchPort: asset.connectedSwitchPort,
+        ssidsBroadcasted: asset.ssidsBroadcasted,
+        frequencyBands: asset.frequencyBands,
       });
 
       // Parse email domain from emailAddress
@@ -303,13 +341,16 @@ export const AssetFormModal = memo(function AssetFormModal({
           setEmailDomain(`@${domainMatch[1]}`);
         }
       }
-    } else {
+    } else if (isOpen) {
       setFormData(initialFormData);
       setEmailDomain("");
     }
-  }, [asset]);
+  }, [asset, isOpen]);
 
-  const handleInputChange = (field: keyof AssetFormData, value: string) => {
+  const handleInputChange = (
+    field: keyof AssetFormData | string,
+    value: string
+  ) => {
     setFormData((prev) => {
       const newData = { ...prev, [field]: value };
 
@@ -346,6 +387,17 @@ export const AssetFormModal = memo(function AssetFormModal({
         newData.powerSupply = "";
         newData.serverRole = "";
         newData.installedApplications = "";
+        // Reset access point fields
+        newData.specificPhysicalLocation = "";
+        newData.ipAssignment = "";
+        newData.managementMethod = "";
+        newData.controllerName = "";
+        newData.controllerAddress = "";
+        newData.powerSource = "";
+        newData.connectedSwitchName = "";
+        newData.connectedSwitchPort = "";
+        newData.ssidsBroadcasted = "";
+        newData.frequencyBands = "";
       }
 
       // Reset IMEI when compute type changes
@@ -374,6 +426,19 @@ export const AssetFormModal = memo(function AssetFormModal({
         if (value !== "switch") {
           newData.poeSupport = "";
           newData.stackClusterMembership = "";
+        }
+        if (value !== "access_point") {
+          // Reset access point specific fields
+          newData.specificPhysicalLocation = "";
+          newData.ipAssignment = "";
+          newData.managementMethod = "";
+          newData.controllerName = "";
+          newData.controllerAddress = "";
+          newData.powerSource = "";
+          newData.connectedSwitchName = "";
+          newData.connectedSwitchPort = "";
+          newData.ssidsBroadcasted = "";
+          newData.frequencyBands = "";
         }
       }
 
@@ -565,12 +630,10 @@ export const AssetFormModal = memo(function AssetFormModal({
   };
 
   const handleCancel = () => {
-    setFormData(initialFormData);
     onClose();
   };
 
   const handleClose = () => {
-    setFormData(initialFormData);
     onClose();
   };
 
@@ -601,106 +664,79 @@ export const AssetFormModal = memo(function AssetFormModal({
           >
             <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-8">
               {/* Basic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="serialNumber"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Serial Number *
-                  </Label>
-                  <Input
-                    id="serialNumber"
-                    value={formData.serialNumber}
-                    onChange={(e) =>
-                      handleInputChange("serialNumber", e.target.value)
-                    }
-                    placeholder="Enter serial number"
-                    className="border-input focus:border-ring bg-background"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="assetType"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Asset Type *
-                  </Label>
-                  <Select
-                    value={formData.assetType}
-                    onValueChange={(value) =>
-                      handleInputChange("assetType", value)
-                    }
-                  >
-                    <SelectTrigger className="border-input focus:border-ring bg-background">
-                      <SelectValue placeholder="Select asset type" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover border-border">
-                      {assetTypes.map((type) => (
-                        <SelectItem
-                          key={type.value}
-                          value={type.value}
-                          className="hover:bg-accent"
-                        >
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="status"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Status *
-                  </Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value) =>
-                      handleInputChange("status", value)
-                    }
-                  >
-                    <SelectTrigger className="border-input focus:border-ring bg-background">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover border-border">
-                      {statusOptions.map((status) => (
-                        <SelectItem
-                          key={status.value}
-                          value={status.value}
-                          className="hover:bg-accent"
-                        >
-                          {status.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Dynamic fields based on asset type */}
-                {formData.assetType === "compute" && (
-                  <div className="space-y-2">
+              <div className="space-y-6">
+                {/* All Core Fields in One Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Serial Number */}
+                  <div className="flex flex-col space-y-2">
                     <Label
-                      htmlFor="computeType"
+                      htmlFor="serialNumber"
                       className="text-sm font-medium text-foreground"
                     >
-                      Compute Type *
+                      Serial Number *
+                    </Label>
+                    <Input
+                      id="serialNumber"
+                      value={formData.serialNumber}
+                      onChange={(e) =>
+                        handleInputChange("serialNumber", e.target.value)
+                      }
+                      placeholder="Enter serial number"
+                      className="border-input focus:border-ring bg-background w-full"
+                      required
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div className="flex flex-col space-y-2">
+                    <Label
+                      htmlFor="status"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Status *
                     </Label>
                     <Select
-                      value={formData.computeType}
+                      value={formData.status}
                       onValueChange={(value) =>
-                        handleInputChange("computeType", value)
+                        handleInputChange("status", value)
                       }
                     >
-                      <SelectTrigger className="border-input focus:border-ring bg-background">
-                        <SelectValue placeholder="Select compute type" />
+                      <SelectTrigger className="border-input focus:border-ring bg-background w-full">
+                        <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent className="bg-popover border-border">
-                        {computeTypes.map((type) => (
+                        {statusOptions.map((status) => (
+                          <SelectItem
+                            key={status.value}
+                            value={status.value}
+                            className="hover:bg-accent"
+                          >
+                            {status.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Asset Type */}
+                  <div className="flex flex-col space-y-2">
+                    <Label
+                      htmlFor="assetType"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Asset Type *
+                    </Label>
+                    <Select
+                      value={formData.assetType}
+                      onValueChange={(value) =>
+                        handleInputChange("assetType", value)
+                      }
+                    >
+                      <SelectTrigger className="border-input focus:border-ring bg-background w-full">
+                        <SelectValue placeholder="Select asset type" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border">
+                        {assetTypes.map((type) => (
                           <SelectItem
                             key={type.value}
                             value={type.value}
@@ -712,623 +748,181 @@ export const AssetFormModal = memo(function AssetFormModal({
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Dynamic Subtype Field Based on Asset Type */}
+                  <div className="flex flex-col space-y-2">
+                    {formData.assetType === "compute" && (
+                      <ComputeTypeField
+                        formData={{ computeType: formData.computeType || "" }}
+                        onInputChange={handleInputChange}
+                      />
+                    )}
+
+                    {formData.assetType === "peripheral" && (
+                      <PeripheralTypeField
+                        formData={{
+                          peripheralType: formData.peripheralType || "",
+                        }}
+                        onInputChange={handleInputChange}
+                      />
+                    )}
+
+                    {formData.assetType === "network" && (
+                      <NetworkTypeField
+                        formData={{ networkType: formData.networkType || "" }}
+                        onInputChange={handleInputChange}
+                      />
+                    )}
+
+                    {formData.assetType === "server" && (
+                      <ServerTypeField
+                        formData={{ serverRole: formData.serverRole }}
+                        onInputChange={handleInputChange}
+                      />
+                    )}
+
+                    {/* Show placeholder when no asset type is selected */}
+                    {!formData.assetType && (
+                      <>
+                        <Label className="text-sm font-medium text-muted-foreground">
+                          Subtype
+                        </Label>
+                        <div className="h-10 border border-dashed border-muted-foreground/25 rounded-md flex items-center justify-center w-full">
+                          <span className="text-sm text-muted-foreground">
+                            Select asset type first
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Additional Dynamic Fields Based on Asset Type */}
+                {formData.assetType === "compute" && (
+                  <ComputeAdditionalFields
+                    formData={{
+                      computeType: formData.computeType || "",
+                      imeiNumber: formData.imeiNumber,
+                      computerName: formData.computerName,
+                    }}
+                    onInputChange={handleInputChange}
+                  />
                 )}
-
-                {formData.assetType === "compute" &&
-                  formData.computeType === "mobile" && (
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="imeiNumber"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        IMEI Number
-                      </Label>
-                      <Input
-                        id="imeiNumber"
-                        value={formData.imeiNumber || ""}
-                        onChange={(e) =>
-                          handleInputChange("imeiNumber", e.target.value)
-                        }
-                        placeholder="Enter IMEI number"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-                  )}
-
-                {formData.assetType === "compute" &&
-                  (formData.computeType === "laptop" ||
-                    formData.computeType === "desktop") && (
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="computerName"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Computer Name
-                      </Label>
-                      <Input
-                        id="computerName"
-                        value={formData.computerName || ""}
-                        onChange={(e) =>
-                          handleInputChange("computerName", e.target.value)
-                        }
-                        placeholder="Enter computer name"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-                  )}
 
                 {formData.assetType === "peripheral" && (
-                  <>
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="peripheralType"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Peripheral Type *
-                      </Label>
-                      <Select
-                        value={formData.peripheralType}
-                        onValueChange={(value) =>
-                          handleInputChange("peripheralType", value)
-                        }
-                      >
-                        <SelectTrigger className="border-input focus:border-ring bg-background">
-                          <SelectValue placeholder="Select peripheral type" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border-border">
-                          {peripheralTypes.map((type) => (
-                            <SelectItem
-                              key={type.value}
-                              value={type.value}
-                              className="hover:bg-accent"
-                            >
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {formData.peripheralType !== "monitor" && (
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="itemName"
-                          className="text-sm font-medium text-foreground"
-                        >
-                          Item Name *
-                        </Label>
-                        <Input
-                          id="itemName"
-                          value={formData.itemName || ""}
-                          onChange={(e) =>
-                            handleInputChange("itemName", e.target.value)
-                          }
-                          placeholder="Enter item name"
-                          className="border-input focus:border-ring bg-background"
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {formData.assetType === "network" && (
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="networkType"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Network Device Type *
-                    </Label>
-                    <Select
-                      value={formData.networkType}
-                      onValueChange={(value) =>
-                        handleInputChange("networkType", value)
-                      }
-                    >
-                      <SelectTrigger className="border-input focus:border-ring bg-background">
-                        <SelectValue placeholder="Select network device type" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover border-border">
-                        {networkTypes.map((type) => (
-                          <SelectItem
-                            key={type.value}
-                            value={type.value}
-                            className="hover:bg-accent"
-                          >
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <PeripheralAdditionalFields
+                    formData={{
+                      peripheralType: formData.peripheralType || "",
+                      itemName: formData.itemName,
+                      screenSize: formData.screenSize,
+                      resolution: formData.resolution,
+                      connectionType: formData.connectionType,
+                    }}
+                    onInputChange={handleInputChange}
+                  />
                 )}
 
                 {formData.assetType === "server" && (
-                  <>
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="hostname"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Hostname / Server Name *
-                      </Label>
-                      <Input
-                        id="hostname"
-                        value={formData.hostname || ""}
-                        onChange={(e) =>
-                          handleInputChange("hostname", e.target.value)
-                        }
-                        placeholder="Enter hostname"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="serverRole"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Server Role / Function
-                      </Label>
-                      <Select
-                        value={formData.serverRole}
-                        onValueChange={(value) =>
-                          handleInputChange("serverRole", value)
-                        }
-                      >
-                        <SelectTrigger className="border-input focus:border-ring bg-background">
-                          <SelectValue placeholder="Select server role" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border-border">
-                          {serverRoles.map((role) => (
-                            <SelectItem
-                              key={role.value}
-                              value={role.value}
-                              className="hover:bg-accent"
-                            >
-                              {role.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </>
+                  <ServerAdditionalFields
+                    formData={{
+                      hostname: formData.hostname,
+                      serverRole: formData.serverRole,
+                      processor: formData.processor,
+                      ramSize: formData.ramSize,
+                      storage: formData.storage,
+                      operatingSystem: formData.operatingSystem,
+                      productionIpAddress: formData.productionIpAddress,
+                      managementMacAddress: formData.managementMacAddress,
+                      powerSupply: formData.powerSupply,
+                      installedApplications: formData.installedApplications,
+                    }}
+                    onInputChange={handleInputChange}
+                  />
                 )}
               </div>
 
               {/* Monitor specific fields */}
               {formData.assetType === "peripheral" &&
                 formData.peripheralType === "monitor" && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
-                      Monitor Specifications
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="screenSize"
-                          className="text-sm font-medium text-foreground"
-                        >
-                          Screen Size (inches)
-                        </Label>
-                        <Input
-                          id="screenSize"
-                          value={formData.screenSize || ""}
-                          onChange={(e) =>
-                            handleInputChange("screenSize", e.target.value)
-                          }
-                          placeholder="e.g., 24, 27, 32"
-                          className="border-input focus:border-ring bg-background"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="resolution"
-                          className="text-sm font-medium text-foreground"
-                        >
-                          Resolution
-                        </Label>
-                        <Input
-                          id="resolution"
-                          value={formData.resolution || ""}
-                          onChange={(e) =>
-                            handleInputChange("resolution", e.target.value)
-                          }
-                          placeholder="e.g., 1920x1080, 4K"
-                          className="border-input focus:border-ring bg-background"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="connectionType"
-                          className="text-sm font-medium text-foreground"
-                        >
-                          Connection Type
-                        </Label>
-                        <Select
-                          value={formData.connectionType}
-                          onValueChange={(value) =>
-                            handleInputChange("connectionType", value)
-                          }
-                        >
-                          <SelectTrigger className="border-input focus:border-ring bg-background">
-                            <SelectValue placeholder="Select connection type" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover border-border">
-                            {connectionTypes.map((type) => (
-                              <SelectItem
-                                key={type.value}
-                                value={type.value}
-                                className="hover:bg-accent"
-                              >
-                                {type.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
+                  <MonitorSpecifications
+                    formData={{
+                      screenSize: formData.screenSize,
+                      resolution: formData.resolution,
+                      connectionType: formData.connectionType,
+                    }}
+                    onInputChange={handleInputChange}
+                  />
                 )}
 
               {/* Network Asset specific fields */}
-              {formData.assetType === "network" && formData.networkType && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
-                    {formData.networkType === "router" ? "Router" : "Switch"}{" "}
-                    Configuration
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="firmwareVersion"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Firmware / OS Version
-                      </Label>
-                      <Input
-                        id="firmwareVersion"
-                        value={formData.firmwareVersion || ""}
-                        onChange={(e) =>
-                          handleInputChange("firmwareVersion", e.target.value)
-                        }
-                        placeholder="Enter firmware version"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="ipAddress"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        IP Address (Management)
-                      </Label>
-                      <Input
-                        id="ipAddress"
-                        value={formData.ipAddress || ""}
-                        onChange={(e) =>
-                          handleInputChange("ipAddress", e.target.value)
-                        }
-                        placeholder="e.g., 192.168.1.1"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="macAddress"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        MAC Address
-                      </Label>
-                      <Input
-                        id="macAddress"
-                        value={formData.macAddress || ""}
-                        onChange={(e) =>
-                          handleInputChange("macAddress", e.target.value)
-                        }
-                        placeholder="e.g., 00:1B:44:11:3A:B7"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="numberOfPorts"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Number of Ports /{" "}
-                        {formData.networkType === "router"
-                          ? "Interfaces"
-                          : "Speed"}
-                      </Label>
-                      <Input
-                        id="numberOfPorts"
-                        value={formData.numberOfPorts || ""}
-                        onChange={(e) =>
-                          handleInputChange("numberOfPorts", e.target.value)
-                        }
-                        placeholder={
-                          formData.networkType === "router"
-                            ? "e.g., 4 LAN, 1 WAN"
-                            : "e.g., 24 ports 1Gbps"
-                        }
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="rackPosition"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Location / Rack Position
-                      </Label>
-                      <Input
-                        id="rackPosition"
-                        value={formData.rackPosition || ""}
-                        onChange={(e) =>
-                          handleInputChange("rackPosition", e.target.value)
-                        }
-                        placeholder="e.g., Rack 1, U5-U7"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="configBackupLocation"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Configuration Backup Location
-                      </Label>
-                      <Input
-                        id="configBackupLocation"
-                        value={formData.configBackupLocation || ""}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "configBackupLocation",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Enter backup location"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    {formData.networkType === "router" && (
-                      <div className="space-y-2 md:col-span-2">
-                        <Label
-                          htmlFor="uplinkDownlinkInfo"
-                          className="text-sm font-medium text-foreground"
-                        >
-                          Uplink / Downlink Information
-                        </Label>
-                        <Textarea
-                          id="uplinkDownlinkInfo"
-                          value={formData.uplinkDownlinkInfo || ""}
-                          onChange={(e) =>
-                            handleInputChange(
-                              "uplinkDownlinkInfo",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Enter uplink/downlink details"
-                          className="border-input focus:border-ring bg-background"
-                        />
-                      </div>
-                    )}
-
-                    {formData.networkType === "switch" && (
-                      <>
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor="poeSupport"
-                            className="text-sm font-medium text-foreground"
-                          >
-                            PoE Support
-                          </Label>
-                          <Input
-                            id="poeSupport"
-                            value={formData.poeSupport || ""}
-                            onChange={(e) =>
-                              handleInputChange("poeSupport", e.target.value)
-                            }
-                            placeholder="e.g., Yes - 370W budget"
-                            className="border-input focus:border-ring bg-background"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor="stackClusterMembership"
-                            className="text-sm font-medium text-foreground"
-                          >
-                            Stack/Cluster Membership
-                          </Label>
-                          <Input
-                            id="stackClusterMembership"
-                            value={formData.stackClusterMembership || ""}
-                            onChange={(e) =>
-                              handleInputChange(
-                                "stackClusterMembership",
-                                e.target.value
-                              )
-                            }
-                            placeholder="e.g., Stack ID 1, Member 2"
-                            className="border-input focus:border-ring bg-background"
-                          />
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
+              {(() => {
+                console.log("AssetModal: Checking Access Point conditions:", {
+                  assetType: formData.assetType,
+                  networkType: formData.networkType,
+                  shouldShowAccessPoint:
+                    formData.assetType === "network" &&
+                    formData.networkType === "access_point",
+                });
+                return (
+                  formData.assetType === "network" &&
+                  formData.networkType === "access_point"
+                );
+              })() && (
+                <AccessPointFields
+                  formData={{
+                    macAddress: formData.macAddress,
+                    specificPhysicalLocation: formData.specificPhysicalLocation,
+                    ipAddress: formData.ipAddress,
+                    ipAssignment: formData.ipAssignment,
+                    managementMethod: formData.managementMethod,
+                    controllerName: formData.controllerName,
+                    controllerAddress: formData.controllerAddress,
+                    powerSource: formData.powerSource,
+                    connectedSwitchName: formData.connectedSwitchName,
+                    connectedSwitchPort: formData.connectedSwitchPort,
+                    firmwareVersion: formData.firmwareVersion,
+                    ssidsBroadcasted: formData.ssidsBroadcasted,
+                    frequencyBands: formData.frequencyBands,
+                  }}
+                  onInputChange={handleInputChange}
+                />
               )}
+
+              {formData.assetType === "network" &&
+                formData.networkType &&
+                formData.networkType !== "access_point" && (
+                  <NetworkConfiguration
+                    formData={{
+                      networkType: formData.networkType,
+                      firmwareVersion: formData.firmwareVersion,
+                      ipAddress: formData.ipAddress,
+                      macAddress: formData.macAddress,
+                      numberOfPorts: formData.numberOfPorts,
+                      rackPosition: formData.rackPosition,
+                      configBackupLocation: formData.configBackupLocation,
+                      uplinkDownlinkInfo: formData.uplinkDownlinkInfo,
+                      poeSupport: formData.poeSupport,
+                      stackClusterMembership: formData.stackClusterMembership,
+                    }}
+                    onInputChange={handleInputChange}
+                  />
+                )}
 
               {/* Server specific fields */}
               {formData.computeType === "server" && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
-                    Server Configuration
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="processor"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Processor (CPU) *
-                      </Label>
-                      <Input
-                        id="processor"
-                        value={formData.processor || ""}
-                        onChange={(e) =>
-                          handleInputChange("processor", e.target.value)
-                        }
-                        placeholder="e.g., Intel Xeon E5-2690 v4 (14 cores, 2.6GHz)"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="ramSize"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        RAM Size & Configuration *
-                      </Label>
-                      <Input
-                        id="ramSize"
-                        value={formData.ramSize || ""}
-                        onChange={(e) =>
-                          handleInputChange("ramSize", e.target.value)
-                        }
-                        placeholder="e.g., 64GB (4x16GB DDR4)"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="storage"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Storage Configuration
-                      </Label>
-                      <Input
-                        id="storage"
-                        value={formData.storage || ""}
-                        onChange={(e) =>
-                          handleInputChange("storage", e.target.value)
-                        }
-                        placeholder="e.g., 2x500GB SSD RAID 1"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="operatingSystem"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Operating System / Version
-                      </Label>
-                      <Input
-                        id="operatingSystem"
-                        value={formData.operatingSystem || ""}
-                        onChange={(e) =>
-                          handleInputChange("operatingSystem", e.target.value)
-                        }
-                        placeholder="e.g., Windows Server 2022, Ubuntu 22.04"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="productionIpAddress"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Production IP Address(es)
-                      </Label>
-                      <Input
-                        id="productionIpAddress"
-                        value={formData.productionIpAddress || ""}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "productionIpAddress",
-                            e.target.value
-                          )
-                        }
-                        placeholder="e.g., 10.1.1.50, 192.168.1.100"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="managementMacAddress"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        MAC Address(es)
-                      </Label>
-                      <Input
-                        id="managementMacAddress"
-                        value={formData.managementMacAddress || ""}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "managementMacAddress",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Primary NIC MAC address"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="powerSupply"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Power Supply Configuration
-                      </Label>
-                      <Input
-                        id="powerSupply"
-                        value={formData.powerSupply || ""}
-                        onChange={(e) =>
-                          handleInputChange("powerSupply", e.target.value)
-                        }
-                        placeholder="e.g., Dual 750W redundant"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-
-                    <div className="space-y-2 md:col-span-2">
-                      <Label
-                        htmlFor="installedApplications"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Installed Applications / Services
-                      </Label>
-                      <Textarea
-                        id="installedApplications"
-                        value={formData.installedApplications || ""}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "installedApplications",
-                            e.target.value
-                          )
-                        }
-                        placeholder="List key applications and services running on this server"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <ServerConfiguration
+                  formData={{
+                    processor: formData.processor,
+                    ramSize: formData.ramSize,
+                    storage: formData.storage,
+                    operatingSystem: formData.operatingSystem,
+                    productionIpAddress: formData.productionIpAddress,
+                    managementMacAddress: formData.managementMacAddress,
+                    powerSupply: formData.powerSupply,
+                    installedApplications: formData.installedApplications,
+                  }}
+                  onInputChange={handleInputChange}
+                />
               )}
 
               {/* Device Information */}
@@ -1462,100 +1056,105 @@ export const AssetFormModal = memo(function AssetFormModal({
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="assignedUser"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Assigned User
-                  </Label>
-                  <Input
-                    id="assignedUser"
-                    value={formData.assignedUser}
-                    onChange={(e) =>
-                      handleInputChange("assignedUser", e.target.value)
-                    }
-                    placeholder="Enter assigned user"
-                    className="border-input focus:border-ring bg-background"
-                  />
-                </div>
+                {/* Hide user-specific fields for network devices */}
+                {formData.assetType !== "network" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="assignedUser"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Assigned User
+                      </Label>
+                      <Input
+                        id="assignedUser"
+                        value={formData.assignedUser}
+                        onChange={(e) =>
+                          handleInputChange("assignedUser", e.target.value)
+                        }
+                        placeholder="Enter assigned user"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="staffId"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Staff ID
-                  </Label>
-                  <Input
-                    id="staffId"
-                    value={formData.staffId || ""}
-                    onChange={(e) =>
-                      handleInputChange("staffId", e.target.value)
-                    }
-                    placeholder="Enter staff ID"
-                    className="border-input focus:border-ring bg-background"
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="staffId"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Staff ID
+                      </Label>
+                      <Input
+                        id="staffId"
+                        value={formData.staffId || ""}
+                        onChange={(e) =>
+                          handleInputChange("staffId", e.target.value)
+                        }
+                        placeholder="Enter staff ID"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="emailAddress"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Email Address
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="emailAddress"
-                      value={
-                        formData.emailAddress
-                          ? formData.emailAddress.split("@")[0]
-                          : ""
-                      }
-                      onChange={(e) => handleEmailChange(e.target.value)}
-                      placeholder="Enter email prefix"
-                      className="border-input focus:border-ring bg-background flex-1"
-                    />
-                    <Select
-                      value={emailDomain}
-                      onValueChange={handleEmailDomainChange}
-                    >
-                      <SelectTrigger className="border-input focus:border-ring bg-background w-48">
-                        <SelectValue placeholder="Select domain" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover border-border">
-                        {emailDomains.map((domain) => (
-                          <SelectItem
-                            key={domain.value}
-                            value={domain.value}
-                            className="hover:bg-accent"
-                          >
-                            {domain.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="emailAddress"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Email Address
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="emailAddress"
+                          value={
+                            formData.emailAddress
+                              ? formData.emailAddress.split("@")[0]
+                              : ""
+                          }
+                          onChange={(e) => handleEmailChange(e.target.value)}
+                          placeholder="Enter email prefix"
+                          className="border-input focus:border-ring bg-background flex-1"
+                        />
+                        <Select
+                          value={emailDomain === "" ? undefined : emailDomain}
+                          onValueChange={handleEmailDomainChange}
+                        >
+                          <SelectTrigger className="border-input focus:border-ring bg-background w-48">
+                            <SelectValue placeholder="Select domain" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover border-border">
+                            {emailDomains.map((domain) => (
+                              <SelectItem
+                                key={domain.value}
+                                value={domain.value}
+                                className="hover:bg-accent"
+                              >
+                                {domain.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="department"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Department
-                  </Label>
-                  <Input
-                    id="department"
-                    value={formData.department}
-                    onChange={(e) =>
-                      handleInputChange("department", e.target.value)
-                    }
-                    placeholder="Enter department"
-                    className="border-input focus:border-ring bg-background"
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="department"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Department
+                      </Label>
+                      <Input
+                        id="department"
+                        value={formData.department}
+                        onChange={(e) =>
+                          handleInputChange("department", e.target.value)
+                        }
+                        placeholder="Enter department"
+                        className="border-input focus:border-ring bg-background"
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="space-y-2">
                   <Label
@@ -1578,7 +1177,7 @@ export const AssetFormModal = memo(function AssetFormModal({
 
               {/* Additional Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <Label
                     htmlFor="specifications"
                     className="text-sm font-medium text-foreground"
@@ -1597,7 +1196,7 @@ export const AssetFormModal = memo(function AssetFormModal({
                   />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <Label
                     htmlFor="description"
                     className="text-sm font-medium text-foreground"

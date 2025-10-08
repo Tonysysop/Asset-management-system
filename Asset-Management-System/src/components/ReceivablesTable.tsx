@@ -197,7 +197,10 @@ Laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Apple Inc.,2023-10-26,1,1 Year,New lapt
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead onClick={() => handleSort("itemName")}>
+                <TableHead
+                  className="pl-6"
+                  onClick={() => handleSort("itemName")}
+                >
                   Item Name
                 </TableHead>
                 <TableHead onClick={() => handleSort("brand")}>Brand</TableHead>

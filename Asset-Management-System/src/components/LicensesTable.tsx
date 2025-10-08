@@ -234,7 +234,10 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead onClick={() => handleSort("licenseName")}>
+              <TableHead
+                className="pl-6"
+                onClick={() => handleSort("licenseName")}
+              >
                 License Name
               </TableHead>
               <TableHead onClick={() => handleSort("vendor")}>Vendor</TableHead>
@@ -257,7 +260,7 @@ Microsoft Office 365,Microsoft,ABCD-EFGH-IJKL-MNOP,volume,50,2023-01-01,2024-01-
           <TableBody>
             {paginatedLicenses.map((license) => (
               <TableRow key={license.id}>
-                <TableCell>
+                <TableCell className="pl-6">
                   <div className="flex items-center">
                     <Key className="w-4 h-4 text-gray-600 mr-2" />
                     <div>

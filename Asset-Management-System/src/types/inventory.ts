@@ -1,13 +1,4 @@
-export type AssetType =
-  | "laptop"
-  | "desktop"
-  | "mobile"
-  | "printer"
-  | "scanner"
-  | "monitor"
-  | "server"
-  | "router"
-  | "switch";
+export type AssetType = "compute" | "peripheral" | "network";
 export type AssetStatus = "in-use" | "spare" | "repair" | "retired";
 export type UserRole = "admin" | "user" | "auditor";
 export type ReceivableStatus = "pending" | "received" | "deployed";
@@ -43,10 +34,11 @@ export interface Asset {
   notes: string;
   description?: string;
   peripheralType?: "printer" | "scanner" | "monitor";
-  networkType?: "router" | "switch";
+  networkType?: "router" | "switch" | "access_point";
   itemName?: string;
   computeType?: "laptop" | "desktop" | "mobile" | "server";
   computerName?: string;
+  imeiNumber?: string;
   // Monitor specific fields
   screenSize?: string;
   resolution?: string;
@@ -72,6 +64,17 @@ export interface Asset {
   powerSupply?: string;
   serverRole?: string;
   installedApplications?: string;
+  // Access Point specific fields
+  specificPhysicalLocation?: string;
+  ipAssignment?: string;
+  managementMethod?: string;
+  controllerName?: string;
+  controllerAddress?: string;
+  powerSource?: string;
+  connectedSwitchName?: string;
+  connectedSwitchPort?: string;
+  ssidsBroadcasted?: string;
+  frequencyBands?: string;
 }
 
 export interface RetrievedAsset extends Asset {

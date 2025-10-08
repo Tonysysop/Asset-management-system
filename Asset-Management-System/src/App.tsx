@@ -212,8 +212,12 @@ function AppContent() {
 
   // Get unique departments for filter
   const departments = useMemo(() => {
-    const assetDepts = assets.map((asset) => asset.department);
-    const licenseDepts = licenses.map((license) => license.department);
+    const assetDepts = assets
+      .map((asset) => asset.department)
+      .filter((dept): dept is string => Boolean(dept));
+    const licenseDepts = licenses
+      .map((license) => license.department)
+      .filter((dept): dept is string => Boolean(dept));
     return Array.from(new Set([...assetDepts, ...licenseDepts])).sort();
   }, [assets, licenses]);
 
