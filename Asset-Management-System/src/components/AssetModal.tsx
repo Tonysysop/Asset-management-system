@@ -28,7 +28,6 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
 import type { Asset, AssetType, AssetStatus } from "@/types/inventory";
-import { generateAssetTag } from "@/services/assetService";
 
 interface AssetFormModalProps {
   isOpen: boolean;
@@ -498,7 +497,9 @@ export const AssetFormModal = memo(function AssetFormModal({
       const assetTag =
         isRedeploying && asset
           ? asset.assetTag
-          : await generateAssetTag(specificAssetType, formData.deployedDate);
+          : await (
+              await import("@/services/assetService")
+            ).generateAssetTag(specificAssetType, formData.deployedDate);
 
       // Convert form data to Asset format and call onSave
       const assetData: Omit<Asset, "id"> = {
