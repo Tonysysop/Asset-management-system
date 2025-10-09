@@ -58,7 +58,6 @@ export const AccessPointFields: React.FC<AccessPointFieldsProps> = ({
   formData,
   onInputChange,
 }) => {
-  console.log("AccessPointFields: Received formData:", formData);
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">

@@ -48,7 +48,7 @@ export const NetworkTypeField: React.FC<{
         Network Device Type *
       </Label>
       <Select
-        value={formData.networkType === "" ? undefined : formData.networkType}
+        value={formData.networkType || ""}
         onValueChange={(value) => onInputChange("networkType", value)}
       >
         <SelectTrigger className="border-input focus:border-ring bg-background w-full">

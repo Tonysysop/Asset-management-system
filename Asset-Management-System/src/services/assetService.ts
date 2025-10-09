@@ -31,6 +31,7 @@ export const getAssets = async (): Promise<Asset[]> => {
 
 export const generateAssetTag = async (
   assetType: string,
+  assetSubtype?: string,
   deployedDate?: Date
 ): Promise<string> => {
   const existingAssets = await getAssets();
@@ -39,8 +40,15 @@ export const generateAssetTag = async (
     ? deployedDate.getFullYear()
     : new Date().getFullYear();
 
-  // Map asset types to abbreviations
+  // Map asset types and subtypes to abbreviations
   const typeAbbreviations: { [key: string]: string } = {
+    // New structure
+    compute: "COM",
+    peripheral: "PER",
+    network: "NET",
+    // Access Point specific
+    access_point: "AP",
+    // Legacy types (for backward compatibility)
     laptop: "LAP",
     desktop: "DES",
     server: "SRV",
@@ -48,14 +56,22 @@ export const generateAssetTag = async (
     printer: "PRI",
     phone: "PHO",
     tablet: "TAB",
-    network: "NET",
     scanner: "SCA",
     mobile: "MOB",
     router: "ROU",
     switch: "SWI",
   };
 
-  const abbreviation = typeAbbreviations[assetType.toLowerCase()] || "ASS";
+  // Determine the abbreviation based on asset type and subtype
+  let abbreviation = "ASS"; // Default fallback
+
+  if (assetSubtype && typeAbbreviations[assetSubtype.toLowerCase()]) {
+    // Use subtype abbreviation if available (e.g., access_point -> AP)
+    abbreviation = typeAbbreviations[assetSubtype.toLowerCase()];
+  } else if (typeAbbreviations[assetType.toLowerCase()]) {
+    // Use main type abbreviation if subtype not found
+    abbreviation = typeAbbreviations[assetType.toLowerCase()];
+  }
 
   // Combine all assets (active + retrieved) to check for used sequence numbers
   const allAssets = [...existingAssets, ...existingRetrievedAssets];

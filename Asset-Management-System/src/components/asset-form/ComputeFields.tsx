@@ -40,7 +40,7 @@ export const ComputeTypeField: React.FC<{
         Compute Type *
       </Label>
       <Select
-        value={formData.computeType === "" ? undefined : formData.computeType}
+        value={formData.computeType || ""}
         onValueChange={(value) => onInputChange("computeType", value)}
       >
         <SelectTrigger className="border-input focus:border-ring bg-background w-full">

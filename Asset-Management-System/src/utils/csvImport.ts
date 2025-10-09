@@ -108,6 +108,8 @@ const transformAssetData = async (
       specificAssetType = item.computeType;
     } else if (item.type === "peripheral" && item.peripheralType) {
       specificAssetType = item.peripheralType;
+    } else if (item.type === "network" && item.networkType) {
+      specificAssetType = item.networkType;
     }
 
     const year = item.deployedDate
@@ -163,6 +165,13 @@ const getNextGlobalSequenceNumber = async (year: number): Promise<number> => {
 // Helper function to get type abbreviation
 const getTypeAbbreviation = (assetType: string): string => {
   const typeAbbreviations: { [key: string]: string } = {
+    // New structure
+    compute: "COM",
+    peripheral: "PER",
+    network: "NET",
+    // Access Point specific
+    access_point: "AP",
+    // Legacy types (for backward compatibility)
     laptop: "LAP",
     desktop: "DES",
     server: "SRV",
@@ -170,7 +179,6 @@ const getTypeAbbreviation = (assetType: string): string => {
     printer: "PRI",
     phone: "PHO",
     tablet: "TAB",
-    network: "NET",
     scanner: "SCA",
     mobile: "MOB",
     router: "ROU",

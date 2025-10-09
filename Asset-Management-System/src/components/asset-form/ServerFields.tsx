@@ -52,7 +52,7 @@ export const ServerTypeField: React.FC<{
         Server Role / Function
       </Label>
       <Select
-        value={formData.serverRole || undefined}
+        value={formData.serverRole || ""}
         onValueChange={(value) => onInputChange("serverRole", value)}
       >
         <SelectTrigger className="border-input focus:border-ring bg-background w-full">

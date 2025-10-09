@@ -229,7 +229,6 @@ export const AssetFormModal = memo(function AssetFormModal({
   // Populate form when editing an asset
   useEffect(() => {
     if (asset && isOpen) {
-      console.log("AssetModal: Populating form with asset data:", asset);
       setFormData({
         serialNumber: asset.serialNumber || "",
         assetType: asset.type
@@ -318,20 +317,6 @@ export const AssetFormModal = memo(function AssetFormModal({
         connectedSwitchPort: asset.connectedSwitchPort || "",
         ssidsBroadcasted: asset.ssidsBroadcasted || "",
         frequencyBands: asset.frequencyBands || "",
-      });
-
-      console.log("AssetModal: Form data set for Access Point:", {
-        assetType: asset.type,
-        networkType: asset.networkType || asset.type,
-        specificPhysicalLocation: asset.specificPhysicalLocation,
-        ipAssignment: asset.ipAssignment,
-        managementMethod: asset.managementMethod,
-        controllerName: asset.controllerName,
-        powerSource: asset.powerSource,
-        connectedSwitchName: asset.connectedSwitchName,
-        connectedSwitchPort: asset.connectedSwitchPort,
-        ssidsBroadcasted: asset.ssidsBroadcasted,
-        frequencyBands: asset.frequencyBands,
       });
 
       // Parse email domain from emailAddress
@@ -558,13 +543,16 @@ export const AssetFormModal = memo(function AssetFormModal({
         specificAssetType = formData.networkType;
       }
 
-      // Generate asset tag using the specific type (unless redeploying - then retain original)
-      const assetTag =
-        isRedeploying && asset
-          ? asset.assetTag
-          : await (
-              await import("@/services/assetService")
-            ).generateAssetTag(specificAssetType, formData.deployedDate);
+      // Generate asset tag only for new assets - always preserve existing asset tag when editing
+      const assetTag = asset
+        ? asset.assetTag // Always preserve original asset tag when editing
+        : await (
+            await import("@/services/assetService")
+          ).generateAssetTag(
+            formData.assetType,
+            specificAssetType,
+            formData.deployedDate
+          );
 
       // Convert form data to Asset format and call onSave
       const assetData: Omit<Asset, "id"> = {
@@ -611,6 +599,17 @@ export const AssetFormModal = memo(function AssetFormModal({
         powerSupply: formData.powerSupply,
         serverRole: formData.serverRole,
         installedApplications: formData.installedApplications,
+        // Access Point specific fields
+        specificPhysicalLocation: formData.specificPhysicalLocation,
+        ipAssignment: formData.ipAssignment,
+        managementMethod: formData.managementMethod,
+        controllerName: formData.controllerName,
+        controllerAddress: formData.controllerAddress,
+        powerSource: formData.powerSource,
+        connectedSwitchName: formData.connectedSwitchName,
+        connectedSwitchPort: formData.connectedSwitchPort,
+        ssidsBroadcasted: formData.ssidsBroadcasted,
+        frequencyBands: formData.frequencyBands,
       };
 
       await onSave(assetData);
@@ -855,38 +854,28 @@ export const AssetFormModal = memo(function AssetFormModal({
                 )}
 
               {/* Network Asset specific fields */}
-              {(() => {
-                console.log("AssetModal: Checking Access Point conditions:", {
-                  assetType: formData.assetType,
-                  networkType: formData.networkType,
-                  shouldShowAccessPoint:
-                    formData.assetType === "network" &&
-                    formData.networkType === "access_point",
-                });
-                return (
-                  formData.assetType === "network" &&
-                  formData.networkType === "access_point"
-                );
-              })() && (
-                <AccessPointFields
-                  formData={{
-                    macAddress: formData.macAddress,
-                    specificPhysicalLocation: formData.specificPhysicalLocation,
-                    ipAddress: formData.ipAddress,
-                    ipAssignment: formData.ipAssignment,
-                    managementMethod: formData.managementMethod,
-                    controllerName: formData.controllerName,
-                    controllerAddress: formData.controllerAddress,
-                    powerSource: formData.powerSource,
-                    connectedSwitchName: formData.connectedSwitchName,
-                    connectedSwitchPort: formData.connectedSwitchPort,
-                    firmwareVersion: formData.firmwareVersion,
-                    ssidsBroadcasted: formData.ssidsBroadcasted,
-                    frequencyBands: formData.frequencyBands,
-                  }}
-                  onInputChange={handleInputChange}
-                />
-              )}
+              {formData.assetType === "network" &&
+                formData.networkType === "access_point" && (
+                  <AccessPointFields
+                    formData={{
+                      macAddress: formData.macAddress,
+                      specificPhysicalLocation:
+                        formData.specificPhysicalLocation,
+                      ipAddress: formData.ipAddress,
+                      ipAssignment: formData.ipAssignment,
+                      managementMethod: formData.managementMethod,
+                      controllerName: formData.controllerName,
+                      controllerAddress: formData.controllerAddress,
+                      powerSource: formData.powerSource,
+                      connectedSwitchName: formData.connectedSwitchName,
+                      connectedSwitchPort: formData.connectedSwitchPort,
+                      firmwareVersion: formData.firmwareVersion,
+                      ssidsBroadcasted: formData.ssidsBroadcasted,
+                      frequencyBands: formData.frequencyBands,
+                    }}
+                    onInputChange={handleInputChange}
+                  />
+                )}
 
               {formData.assetType === "network" &&
                 formData.networkType &&
@@ -1115,7 +1104,7 @@ export const AssetFormModal = memo(function AssetFormModal({
                           className="border-input focus:border-ring bg-background flex-1"
                         />
                         <Select
-                          value={emailDomain === "" ? undefined : emailDomain}
+                          value={emailDomain || ""}
                           onValueChange={handleEmailDomainChange}
                         >
                           <SelectTrigger className="border-input focus:border-ring bg-background w-48">
@@ -1245,7 +1234,9 @@ export const AssetFormModal = memo(function AssetFormModal({
               ? "Saving..."
               : isRedeploying
               ? "Redeploy"
-              : "Save Asset"}
+              : asset
+              ? "Update Asset"
+              : "Add Asset"}
           </Button>
         </div>
       </DialogContent>

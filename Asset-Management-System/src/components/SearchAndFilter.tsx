@@ -1,6 +1,21 @@
 import React from "react";
 import { Search, Download, Filter, X } from "lucide-react";
 import type { AssetType, AssetStatus } from "../types/inventory";
+
+// Extended type for asset filtering that includes specific subtypes
+export type ExtendedAssetType =
+  | AssetType
+  | "laptop"
+  | "desktop"
+  | "printer"
+  | "scanner"
+  | "monitor"
+  | "server"
+  | "router"
+  | "switch"
+  | "access_point"
+  | "mobile"
+  | "all";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent } from "./ui/card";
@@ -16,8 +31,8 @@ import {
 interface SearchAndFilterProps {
   searchTerm: string;
   onSearchChange: (term: string) => void;
-  selectedType: AssetType | "all";
-  onTypeChange: (type: AssetType | "all") => void;
+  selectedType: ExtendedAssetType;
+  onTypeChange: (type: ExtendedAssetType) => void;
   selectedStatus: AssetStatus | "all";
   onStatusChange: (status: AssetStatus | "all") => void;
   selectedDepartment: string;
@@ -40,7 +55,7 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   onExport,
   canExport = true,
 }) => {
-  const assetTypes: (AssetType | "all")[] = [
+  const assetTypes: ExtendedAssetType[] = [
     "all",
     "laptop",
     "desktop",
@@ -50,6 +65,7 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
     "server",
     "router",
     "switch",
+    "access_point",
     "mobile",
   ];
 
@@ -86,6 +102,7 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
       server: "🖥️",
       router: "📶",
       switch: "🔌",
+      access_point: "📶",
       mobile: "📱",
     };
     return icons[type] || "📦";
@@ -148,7 +165,9 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
                       <span>
                         {type === "all"
                           ? "All Types"
-                          : type.charAt(0).toUpperCase() + type.slice(1)}
+                          : type
+                              .replace(/_/g, " ")
+                              .replace(/\b\w/g, (l) => l.toUpperCase())}
                       </span>
                     </div>
                   </SelectItem>

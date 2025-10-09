@@ -53,9 +53,7 @@ export const PeripheralTypeField: React.FC<{
         Peripheral Type *
       </Label>
       <Select
-        value={
-          formData.peripheralType === "" ? undefined : formData.peripheralType
-        }
+        value={formData.peripheralType || ""}
         onValueChange={(value) => onInputChange("peripheralType", value)}
       >
         <SelectTrigger className="border-input focus:border-ring bg-background w-full">
@@ -177,7 +175,7 @@ export const MonitorSpecifications: React.FC<{
       <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
         Monitor Specifications
       </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="space-y-2">
           <Label
             htmlFor="screenSize"

@@ -15,6 +15,7 @@ import {
   Tablet,
   Eye,
   History,
+  Wifi,
 } from "lucide-react";
 import type { Asset } from "../types/inventory";
 import ViewDetailsModal from "./ViewDetailsModal";
@@ -59,6 +60,8 @@ const AssetTableRow = memo<AssetTableRowProps>(
           return <Server className="w-4 h-4" />;
         case "router":
           return <Router className="w-4 h-4" />;
+        case "access_point":
+          return <Wifi className="w-4 h-4" />;
         case "mobile":
           return <Smartphone className="w-4 h-4" />;
         case "tablet":
@@ -66,6 +69,10 @@ const AssetTableRow = memo<AssetTableRowProps>(
         default:
           return <HardDrive className="w-4 h-4" />;
       }
+    };
+
+    const formatAssetType = (type: string) => {
+      return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
     };
 
     const getStatusColor = (status: string) => {
@@ -113,7 +120,7 @@ const AssetTableRow = memo<AssetTableRowProps>(
         <TableCell>
           <div className="flex items-center">
             <div className="mr-2">{getAssetIcon(asset.type)}</div>
-            <span className="capitalize">{asset.type}</span>
+            <span>{formatAssetType(asset.type)}</span>
           </div>
         </TableCell>
         <TableCell>

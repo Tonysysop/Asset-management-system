@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import type {
   Asset,
-  AssetType,
   AssetStatus,
   UserRole,
   Receivable,
@@ -19,6 +18,7 @@ import InventoryTable from "./components/InventoryTable";
 import ReceivablesTable from "./components/ReceivablesTable";
 import LicensesTable from "./components/LicensesTable";
 import SearchAndFilter from "./components/SearchAndFilter";
+import type { ExtendedAssetType } from "./components/SearchAndFilter";
 import AssetModal from "./components/AssetModal";
 import ReceivableModal from "./components/ReceivableModal";
 import ReceivableAssignmentModal from "./components/ReceivableAssignmentModal";
@@ -204,7 +204,7 @@ function AppContent() {
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedType, setSelectedType] = useState<AssetType | "all">("all");
+  const [selectedType, setSelectedType] = useState<ExtendedAssetType>("all");
   const [selectedStatus, setSelectedStatus] = useState<AssetStatus | "all">(
     "all"
   );
@@ -231,7 +231,12 @@ function AppContent() {
         asset.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
         asset.model.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesType = selectedType === "all" || asset.type === selectedType;
+      const matchesType =
+        selectedType === "all" ||
+        asset.type === selectedType ||
+        asset.computeType === selectedType ||
+        asset.peripheralType === selectedType ||
+        asset.networkType === selectedType;
       const matchesStatus =
         selectedStatus === "all" || asset.status === selectedStatus;
       const matchesDepartment =
