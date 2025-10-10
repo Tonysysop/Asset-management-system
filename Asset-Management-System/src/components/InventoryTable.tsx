@@ -86,26 +86,39 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     [addAssetsMutation, currentUser?.email, onImport, toast]
   );
 
-  const assetSampleData = `serialNumber,type,computeType,peripheralType,networkType,brand,model,specifications,warrantyExpiry,vendor,assignedUser,department,status,location,notes,deployedDate,imeiNumber,screenSize,resolution,connectionType,firmwareVersion,ipAddress,macAddress,numberOfPorts,powerSupply,serverRole,installedApplications
-SN-001,laptop,,,,"Dell","XPS 15","i7, 16GB RAM, 512GB SSD",2026-01-14,"Dell Inc.","John Doe","Engineering","in-use","Building A","Room 101","2025-01-15","","","","","","","","","","","",""
-SN-002,desktop,,,,"HP","EliteDesk 800","i5, 8GB RAM, 256GB SSD",2026-02-14,"HP Inc.","Jane Smith","Marketing","in-use","Building B","Room 205","2025-01-20","","","","","","","","","","","",""
-SN-003,mobile,,,,"Apple","iPhone 15","128GB, 5G",2026-03-14,"Apple Inc.","Mike Johnson","Sales","in-use","Building A","Room 150","2025-02-01","123456789012345","","","","","","","","","","","",""
-SN-004,printer,,,,"Canon","PIXMA TR8620","All-in-One, Wireless",2026-04-14,"Canon Inc.","Sarah Wilson","HR","in-use","Building C","Room 301","2025-02-15","","","","","","","","","","","",""
-SN-005,scanner,,,,"Epson","WorkForce ES-400","Document Scanner",2026-05-14,"Epson Inc.","David Brown","Finance","in-use","Building B","Room 180","2025-03-01","","","","","","","","","","","",""
-SN-006,monitor,,,,"Samsung","27-inch 4K","3840x2160, USB-C",2026-06-14,"Samsung Inc.","Lisa Davis","IT","in-use","Building A","Room 101","2025-03-15","","27","3840x2160","USB-C","","","","","","","","",""
-SN-007,server,,,,"Dell","PowerEdge R750","Xeon, 32GB RAM, 1TB SSD",2026-07-14,"Dell Inc.","Tom Wilson","IT","in-use","Data Center","Rack 1","2025-04-01","","","","","","","","","","750W","Database Server","Windows Server 2022"
-SN-008,router,,,,"Cisco","ISR 4331","Gigabit Ethernet",2026-08-14,"Cisco Inc.","Network Admin","IT","in-use","Network Closet","Rack 2","2025-04-15","","","","","16.12.04","192.168.1.1","00:1A:2B:3C:4D:5E","4","","","",""
-SN-009,switch,,,,"Netgear","GS108T","8-Port Gigabit",2026-09-14,"Netgear Inc.","Network Admin","IT","in-use","Network Closet","Rack 2","2025-05-01","","","","","","","","","8","","","",""`;
+  const assetSampleData = `serialNumber,type,computeType,peripheralType,networkType,brand,model,specifications,warrantyExpiry,vendor,assignedUser,staffId,emailAddress,department,status,location,notes,deployedDate,imeiNumber,computerName,itemName,screenSize,resolution,connectionType,firmwareVersion,ipAddress,macAddress,numberOfPorts,rackPosition,configBackupLocation,uplinkDownlinkInfo,poeSupport,stackClusterMembership,powerSupply,serverRole,installedApplications,hostname,processor,ramSize,storage,operatingSystem,productionIpAddress,managementMacAddress,specificPhysicalLocation,ipAssignment,managementMethod,controllerName,controllerAddress,powerSource,connectedSwitchName,connectedSwitchPort,ssidsBroadcasted,frequencyBands
+SN-001,compute,laptop,,,"Dell","XPS 15","i7, 16GB RAM, 512GB SSD",2026-01-14,"Dell Inc.","John Doe","EMP001","john.doe@buagroup.com","Engineering","in-use","Building A","Room 101","2025-01-15","","","","","","","","","","","",""
+SN-002,compute,desktop,,,"HP","EliteDesk 800","i5, 8GB RAM, 256GB SSD",2026-02-14,"HP Inc.","Jane Smith","EMP002","jane.smith@buagroup.com","Marketing","in-use","Building B","Room 205","2025-01-20","","","","","","","","","","","",""
+SN-003,compute,mobile,,,"Apple","iPhone 15","128GB, 5G",2026-03-14,"Apple Inc.","Mike Johnson","EMP003","mike.johnson@buagroup.com","Sales","in-use","Building A","Room 150","2025-02-01","123456789012345","","","","","","","","","","","",""
+SN-004,peripheral,,printer,,"Canon","PIXMA TR8620","All-in-One, Wireless",2026-04-14,"Canon Inc.","Sarah Wilson","EMP004","sarah.wilson@buagroup.com","HR","in-use","Building C","Room 301","2025-02-15","","","","","","","","","","","",""
+SN-005,peripheral,,scanner,,"Epson","WorkForce ES-400","Document Scanner",2026-05-14,"Epson Inc.","David Brown","EMP005","david.brown@buagroup.com","Finance","in-use","Building B","Room 180","2025-03-01","","","","","","","","","","","",""
+SN-006,peripheral,,monitor,,"Samsung","27-inch 4K","3840x2160, USB-C",2026-06-14,"Samsung Inc.","Lisa Davis","EMP006","lisa.davis@buagroup.com","IT","in-use","Building A","Room 101","2025-03-15","","27","3840x2160","USB-C","","","","","","","","",""
+SN-007,compute,server,,,"Dell","PowerEdge R750","Xeon, 32GB RAM, 1TB SSD",2026-07-14,"Dell Inc.","Tom Wilson","","","IT","in-use","Data Center","Rack 1","2025-04-01","","","","","","","","","","750W","Database Server","Windows Server 2022"
+SN-008,network,,,router,"Cisco","ISR 4331","Gigabit Ethernet",2026-08-14,"Cisco Inc.","","","","IT","in-use","Network Closet","Rack 2","2025-04-15","","","","","16.12.04","192.168.1.1","00:1A:2B:3C:4D:5E","4","","","",""
+SN-009,network,,,switch,"Netgear","GS108T","8-Port Gigabit",2026-09-14,"Netgear Inc.","","","","IT","in-use","Network Closet","Rack 2","2025-05-01","","","","","","","","","8","","","",""
+SN-010,compute,tablet,,,"Apple","iPad Pro","12.9-inch, 256GB",2026-10-14,"Apple Inc.","Alex Johnson","EMP007","alex.johnson@buagroup.com","Marketing","in-use","Building B","Room 210","2025-05-15","","","","","","","","","","","","",""
+SN-011,peripheral,,keyboard,,"Logitech","MX Keys","Wireless, Backlit",2026-11-14,"Logitech Inc.","Sarah Wilson","EMP008","sarah.wilson@buagroup.com","Engineering","in-use","Building A","Room 102","2025-06-01","","","","","","","","","","","","",""
+SN-012,peripheral,,mouse,,"Logitech","MX Master 3","Wireless, Ergonomic",2026-12-14,"Logitech Inc.","Mike Johnson","EMP009","mike.johnson@buagroup.com","Engineering","in-use","Building A","Room 102","2025-06-15","","","","","","","","","","","","",""
+SN-013,peripheral,,headset,,"Sony","WH-1000XM5","Noise Cancelling",2027-01-14,"Sony Inc.","Lisa Davis","EMP010","lisa.davis@buagroup.com","IT","in-use","Building A","Room 103","2025-07-01","","","","","","","","","","","","",""
+SN-014,peripheral,,webcam,,"Logitech","C920 HD Pro","1080p, Auto Focus",2027-02-14,"Logitech Inc.","David Brown","EMP011","david.brown@buagroup.com","Finance","in-use","Building B","Room 181","2025-07-15","","","","","","","","","","","","",""
+SN-015,peripheral,,speaker,,"JBL","Charge 5","Portable, Bluetooth",2027-03-14,"JBL Inc.","Tom Wilson","EMP012","tom.wilson@buagroup.com","IT","in-use","Building A","Room 104","2025-08-01","","","","","","","","","","","","",""
+SN-016,peripheral,,other,,"Generic","USB Hub","4-Port USB 3.0",2027-04-14,"Generic Inc.","Alex Johnson","EMP013","alex.johnson@buagroup.com","Marketing","in-use","Building B","Room 211","2025-08-15","","","","","","","","","","","","",""
+SN-017,network,,,access_point,"Ubiquiti","UniFi AP AC Pro","802.11ac, PoE",2027-05-14,"Ubiquiti Inc.","","","","IT","in-use","Building A","Ceiling Mount","2025-09-01","","","","","","192.168.1.50","AA:BB:CC:DD:EE:FF","","","","","","","","","","","Office Floor 3","Static","UniFi Controller","controller.local","10.0.0.100","PoE 802.3af","Switch-01","GE1/0/1","Corp-WiFi","2.4GHz/5GHz"
+SN-018,network,,,firewall,"Fortinet","FortiGate 60E","UTM Firewall",2027-06-14,"Fortinet Inc.","","","","IT","in-use","Network Closet","Rack 3","2025-09-15","","","","","","","","","","","","",""
+SN-019,network,,,other,"Generic","Network Switch","24-Port Managed",2027-07-14,"Generic Inc.","","","","IT","in-use","Network Closet","Rack 4","2025-10-01","","","","","","","","","","","","",""`;
 
   const assetInstructions = [
     "The CSV file must include all columns shown in the sample. Leave fields empty if not applicable.",
-    "Asset types: laptop, desktop, mobile, printer, scanner, monitor, server, router, switch",
-    "For compute types (laptop, desktop, mobile): use computeType field",
-    "For peripheral types (printer, scanner, monitor): use peripheralType field",
-    "For network types (router, switch): use networkType field",
-    "Status must be one of: in-use, spare, repair, retired",
+    "Main asset types: compute, peripheral, network",
+    "For compute assets: set type='compute' and specify computeType (laptop, desktop, mobile, server)",
+    "For peripheral assets: set type='peripheral' and specify peripheralType (printer, scanner, monitor, keyboard, mouse, headset, webcam, speaker, other)",
+    "For network assets: set type='network' and specify networkType (router, switch, access_point, firewall, other)",
+    "Status must be one of: in-use, spare, repaired, retired",
     "Dates can be in any format (MM/DD/YYYY, YYYY-MM-DD, etc.) and will be automatically converted",
     "Asset tags will be auto-generated based on type and sequence",
+    "For servers: include powerSupply and serverRole fields",
+    "For monitors: include screenSize, resolution, and connectionType fields",
+    "For switches: include poeSupport and stackClusterMembership fields",
   ];
 
   const expectedAssetHeaders = [
@@ -120,12 +133,16 @@ SN-009,switch,,,,"Netgear","GS108T","8-Port Gigabit",2026-09-14,"Netgear Inc.","
     "warrantyExpiry",
     "vendor",
     "assignedUser",
+    "staffId",
+    "emailAddress",
     "department",
     "status",
     "location",
     "notes",
     "deployedDate",
     "imeiNumber",
+    "computerName",
+    "itemName",
     "screenSize",
     "resolution",
     "connectionType",
@@ -133,9 +150,31 @@ SN-009,switch,,,,"Netgear","GS108T","8-Port Gigabit",2026-09-14,"Netgear Inc.","
     "ipAddress",
     "macAddress",
     "numberOfPorts",
+    "rackPosition",
+    "configBackupLocation",
+    "uplinkDownlinkInfo",
+    "poeSupport",
+    "stackClusterMembership",
     "powerSupply",
     "serverRole",
     "installedApplications",
+    "hostname",
+    "processor",
+    "ramSize",
+    "storage",
+    "operatingSystem",
+    "productionIpAddress",
+    "managementMacAddress",
+    "specificPhysicalLocation",
+    "ipAssignment",
+    "managementMethod",
+    "controllerName",
+    "controllerAddress",
+    "powerSource",
+    "connectedSwitchName",
+    "connectedSwitchPort",
+    "ssidsBroadcasted",
+    "frequencyBands",
   ];
 
   // Memoized handlers to prevent unnecessary re-renders

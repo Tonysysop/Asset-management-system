@@ -45,3 +45,58 @@ export const safeCreateDate = (dateString: string): Date | null => {
     return null;
   }
 };
+
+/**
+ * Parses a date string that might be in "October 15th, 2025" format or other formats
+ * @param dateString - The date string to parse
+ * @returns Date object or null if invalid
+ */
+export const parseDateString = (dateString: string): Date | null => {
+  if (!dateString) return null;
+
+  try {
+    // First try standard Date parsing
+    let date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+      return date;
+    }
+
+    // Try parsing "October 15th, 2025" format
+    const formattedDateRegex =
+      /^([A-Za-z]+)\s+(\d+)(?:st|nd|rd|th),\s+(\d{4})$/;
+    const match = dateString.match(formattedDateRegex);
+
+    if (match) {
+      const [, monthName, day, year] = match;
+      const months = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ];
+
+      const monthIndex = months.findIndex(
+        (m) => m.toLowerCase() === monthName.toLowerCase()
+      );
+
+      if (monthIndex !== -1) {
+        date = new Date(parseInt(year), monthIndex, parseInt(day));
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+};

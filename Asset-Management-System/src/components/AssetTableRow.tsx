@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { safeFormatDate, isValidDate } from "../utils/dateUtils";
+import { safeFormatDate, parseDateString } from "../utils/dateUtils";
 import {
   Edit,
   Trash2,
@@ -91,9 +91,9 @@ const AssetTableRow = memo<AssetTableRowProps>(
     };
 
     const isWarrantyExpiring = (warrantyDate: string) => {
-      if (!isValidDate(warrantyDate)) return false;
+      const warranty = parseDateString(warrantyDate);
+      if (!warranty) return false;
 
-      const warranty = new Date(warrantyDate);
       const today = new Date();
       const monthsUntilExpiry =
         (warranty.getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 30);

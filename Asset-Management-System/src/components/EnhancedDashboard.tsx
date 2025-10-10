@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import type { Asset, Receivable, License } from "../types/inventory";
-import { isValidDate } from "../utils/dateUtils";
+import { isValidDate, parseDateString } from "../utils/dateUtils";
 import {
   Monitor,
   Laptop,
@@ -91,9 +91,9 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
 
   const warningAssets = useMemo(() => {
     return assets.filter((asset) => {
-      if (!isValidDate(asset.warrantyExpiry)) return false;
+      const warrantyDate = parseDateString(asset.warrantyExpiry);
+      if (!warrantyDate) return false;
 
-      const warrantyDate = new Date(asset.warrantyExpiry);
       const today = new Date();
       const monthsUntilExpiry =
         (warrantyDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 30);

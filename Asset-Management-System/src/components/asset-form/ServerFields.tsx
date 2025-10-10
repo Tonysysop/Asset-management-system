@@ -291,24 +291,6 @@ export const ServerConfiguration: React.FC<{
             className="border-input focus:border-ring bg-background"
           />
         </div>
-
-        <div className="space-y-2 md:col-span-3">
-          <Label
-            htmlFor="installedApplications"
-            className="text-sm font-medium text-foreground"
-          >
-            Installed Applications
-          </Label>
-          <Textarea
-            id="installedApplications"
-            value={formData.installedApplications || ""}
-            onChange={(e) =>
-              onInputChange("installedApplications", e.target.value)
-            }
-            placeholder="List installed applications and versions..."
-            className="border-input focus:border-ring bg-background min-h-[100px]"
-          />
-        </div>
       </div>
     </div>
   );

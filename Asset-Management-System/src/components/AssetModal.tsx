@@ -28,6 +28,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
 import type { Asset, AssetType, AssetStatus } from "@/types/inventory";
+import { parseDateString } from "@/utils/dateUtils";
 import {
   ComputeTypeField,
   ComputeAdditionalFields,
@@ -261,16 +262,10 @@ export const AssetFormModal = memo(function AssetFormModal({
         brand: asset.brand || "",
         model: asset.model || "",
         deployedDate: asset.deployedDate
-          ? (() => {
-              const date = new Date(asset.deployedDate);
-              return isNaN(date.getTime()) ? undefined : date;
-            })()
+          ? parseDateString(asset.deployedDate) || undefined
           : undefined,
         warrantyExpiration: asset.warrantyExpiry
-          ? (() => {
-              const date = new Date(asset.warrantyExpiry);
-              return isNaN(date.getTime()) ? undefined : date;
-            })()
+          ? parseDateString(asset.warrantyExpiry) || undefined
           : undefined,
         vendor: asset.vendor || "",
         assignedUser: asset.assignedUser || "",
@@ -397,6 +392,13 @@ export const AssetFormModal = memo(function AssetFormModal({
         value !== "desktop"
       ) {
         newData.computerName = "";
+      }
+
+      // Reset staff ID, email address, and department when compute type changes to server
+      if (field === "computeType" && value === "server") {
+        newData.staffId = "";
+        newData.emailAddress = "";
+        newData.department = "";
       }
 
       // Reset monitor fields when peripheral type changes
@@ -1066,82 +1068,89 @@ export const AssetFormModal = memo(function AssetFormModal({
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="staffId"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Staff ID
-                      </Label>
-                      <Input
-                        id="staffId"
-                        value={formData.staffId || ""}
-                        onChange={(e) =>
-                          handleInputChange("staffId", e.target.value)
-                        }
-                        placeholder="Enter staff ID"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
+                    {/* Hide staff ID, email address, and department for servers */}
+                    {formData.computeType !== "server" && (
+                      <>
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="staffId"
+                            className="text-sm font-medium text-foreground"
+                          >
+                            Staff ID
+                          </Label>
+                          <Input
+                            id="staffId"
+                            value={formData.staffId || ""}
+                            onChange={(e) =>
+                              handleInputChange("staffId", e.target.value)
+                            }
+                            placeholder="Enter staff ID"
+                            className="border-input focus:border-ring bg-background"
+                          />
+                        </div>
 
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="emailAddress"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Email Address
-                      </Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="emailAddress"
-                          value={
-                            formData.emailAddress
-                              ? formData.emailAddress.split("@")[0]
-                              : ""
-                          }
-                          onChange={(e) => handleEmailChange(e.target.value)}
-                          placeholder="Enter email prefix"
-                          className="border-input focus:border-ring bg-background flex-1"
-                        />
-                        <Select
-                          value={emailDomain || ""}
-                          onValueChange={handleEmailDomainChange}
-                        >
-                          <SelectTrigger className="border-input focus:border-ring bg-background w-48">
-                            <SelectValue placeholder="Select domain" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover border-border">
-                            {emailDomains.map((domain) => (
-                              <SelectItem
-                                key={domain.value}
-                                value={domain.value}
-                                className="hover:bg-accent"
-                              >
-                                {domain.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="emailAddress"
+                            className="text-sm font-medium text-foreground"
+                          >
+                            Email Address
+                          </Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="emailAddress"
+                              value={
+                                formData.emailAddress
+                                  ? formData.emailAddress.split("@")[0]
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                handleEmailChange(e.target.value)
+                              }
+                              placeholder="Enter email prefix"
+                              className="border-input focus:border-ring bg-background flex-1"
+                            />
+                            <Select
+                              value={emailDomain || ""}
+                              onValueChange={handleEmailDomainChange}
+                            >
+                              <SelectTrigger className="border-input focus:border-ring bg-background w-48">
+                                <SelectValue placeholder="Select domain" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-popover border-border">
+                                {emailDomains.map((domain) => (
+                                  <SelectItem
+                                    key={domain.value}
+                                    value={domain.value}
+                                    className="hover:bg-accent"
+                                  >
+                                    {domain.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
 
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="department"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Department
-                      </Label>
-                      <Input
-                        id="department"
-                        value={formData.department}
-                        onChange={(e) =>
-                          handleInputChange("department", e.target.value)
-                        }
-                        placeholder="Enter department"
-                        className="border-input focus:border-ring bg-background"
-                      />
-                    </div>
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="department"
+                            className="text-sm font-medium text-foreground"
+                          >
+                            Department
+                          </Label>
+                          <Input
+                            id="department"
+                            value={formData.department}
+                            onChange={(e) =>
+                              handleInputChange("department", e.target.value)
+                            }
+                            placeholder="Enter department"
+                            className="border-input focus:border-ring bg-background"
+                          />
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
 
@@ -1164,6 +1173,28 @@ export const AssetFormModal = memo(function AssetFormModal({
                 </div>
               </div>
 
+              {/* Installed Applications - Only for servers */}
+              {formData.computeType === "server" && (
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="installedApplications"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Installed Applications
+                  </Label>
+                  <Textarea
+                    id="installedApplications"
+                    value={formData.installedApplications || ""}
+                    onChange={(e) =>
+                      handleInputChange("installedApplications", e.target.value)
+                    }
+                    placeholder="List installed applications and versions..."
+                    className="border-input focus:border-ring bg-background min-h-[80px]"
+                    rows={3}
+                  />
+                </div>
+              )}
+
               {/* Additional Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 md:col-span-2">
@@ -1180,8 +1211,8 @@ export const AssetFormModal = memo(function AssetFormModal({
                       handleInputChange("specifications", e.target.value)
                     }
                     placeholder="Enter technical specifications"
-                    className="border-input focus:border-ring bg-background min-h-[120px]"
-                    rows={5}
+                    className="border-input focus:border-ring bg-background min-h-[80px]"
+                    rows={3}
                   />
                 </div>
 
@@ -1199,8 +1230,8 @@ export const AssetFormModal = memo(function AssetFormModal({
                       handleInputChange("description", e.target.value)
                     }
                     placeholder="Enter description"
-                    className="border-input focus:border-ring bg-background min-h-[120px]"
-                    rows={5}
+                    className="border-input focus:border-ring bg-background min-h-[80px]"
+                    rows={3}
                   />
                 </div>
               </div>

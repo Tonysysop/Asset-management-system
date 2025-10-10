@@ -23,6 +23,7 @@ interface PeripheralFieldsProps {
 const peripheralTypes = [
   { value: "monitor", label: "Monitor" },
   { value: "printer", label: "Printer" },
+  { value: "scanner", label: "Scanner" },
   { value: "keyboard", label: "Keyboard" },
   { value: "mouse", label: "Mouse" },
   { value: "headset", label: "Headset" },
