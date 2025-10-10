@@ -39,10 +39,19 @@ export const useRetrievedAssets = () => {
   });
 };
 
-export const useAssetTag = (assetType: string, deployedDate?: Date) => {
+export const useAssetTag = (
+  assetType: string,
+  assetSubtype?: string,
+  deployedDate?: Date
+) => {
   return useQuery({
-    queryKey: ["assetTag", assetType, deployedDate?.getFullYear()],
-    queryFn: () => generateAssetTag(assetType, deployedDate),
+    queryKey: [
+      "assetTag",
+      assetType,
+      assetSubtype,
+      deployedDate?.getFullYear(),
+    ],
+    queryFn: () => generateAssetTag(assetType, assetSubtype, deployedDate),
     staleTime: 5 * 60 * 1000, // 5 minutes
     enabled: !!assetType,
   });
