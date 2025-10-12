@@ -22,7 +22,8 @@ import {
   IdCard,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { ReceivableUser, Receivable } from "../types/inventory";
+import type { ReceivableUser, Receivable, Asset } from "../types/inventory";
+import BarcodeLabel from "./BarcodeLabel";
 
 interface ViewDetailsModalProps {
   item: unknown;
@@ -36,6 +37,16 @@ const hasAssignedUsers = (item: unknown): item is Receivable => {
     item !== null &&
     "assignedUsers" in item &&
     Array.isArray((item as Record<string, unknown>).assignedUsers)
+  );
+};
+
+// Type guard to check if item is an asset (has assetTag)
+const isAsset = (item: unknown): item is Asset => {
+  return (
+    typeof item === "object" &&
+    item !== null &&
+    "assetTag" in item &&
+    typeof (item as Record<string, unknown>).assetTag === "string"
   );
 };
 
@@ -620,6 +631,13 @@ const ViewDetailsModal: React.FC<ViewDetailsModalProps> = ({ item, title }) => {
         </DialogHeader>
 
         <div className="space-y-6 overflow-y-auto flex-1 pt-4">
+          {/* Barcode section for assets */}
+          {isAsset(item) && (
+            <div className="pb-6 border-b border-border">
+              <BarcodeLabel asset={item} showPrintButton={true} />
+            </div>
+          )}
+
           {renderFieldGroup(
             "Basic Information",
             categorizedFields.basic,

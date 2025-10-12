@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Asset QR Code Decoder - BUA Group</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        padding: 40px;
+        max-width: 600px;
+        width: 100%;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .header h1 {
+        color: #991b1e;
+        font-size: 28px;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        color: #666;
+        font-size: 14px;
+      }
+
+      .input-group {
+        margin-bottom: 20px;
+      }
+
+      .input-group label {
+        display: block;
+        color: #333;
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 14px;
+      }
+
+      .input-group textarea {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-family: "Courier New", monospace;
+        font-size: 13px;
+        resize: vertical;
+        min-height: 100px;
+        transition: border-color 0.3s;
+      }
+
+      .input-group textarea:focus {
+        outline: none;
+        border-color: #991b1e;
+      }
+
+      .button {
+        background: #991b1e;
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+        transition: background 0.3s;
+      }
+
+      .button:hover {
+        background: #7a1518;
+      }
+
+      .button:active {
+        transform: translateY(1px);
+      }
+
+      .result {
+        margin-top: 30px;
+        display: none;
+      }
+
+      .result.show {
+        display: block;
+      }
+
+      .result-header {
+        background: #f5f5f5;
+        padding: 15px;
+        border-radius: 8px 8px 0 0;
+        border-left: 4px solid #991b1e;
+      }
+
+      .result-header h2 {
+        color: #991b1e;
+        font-size: 18px;
+        margin-bottom: 5px;
+      }
+
+      .result-body {
+        background: #fafafa;
+        padding: 20px;
+        border-radius: 0 0 8px 8px;
+        border: 1px solid #e0e0e0;
+        border-top: none;
+      }
+
+      .asset-field {
+        display: flex;
+        padding: 12px;
+        margin-bottom: 10px;
+        background: white;
+        border-radius: 6px;
+        border-left: 3px solid #667eea;
+      }
+
+      .asset-field:last-child {
+        margin-bottom: 0;
+      }
+
+      .field-label {
+        font-weight: 600;
+        color: #555;
+        min-width: 150px;
+        font-size: 13px;
+      }
+
+      .field-value {
+        color: #333;
+        font-size: 13px;
+        word-break: break-word;
+      }
+
+      .error {
+        background: #fee;
+        color: #c33;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid #c33;
+        margin-top: 20px;
+        display: none;
+      }
+
+      .error.show {
+        display: block;
+      }
+
+      .instructions {
+        background: #e3f2fd;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        color: #1565c0;
+        border-left: 4px solid #1565c0;
+      }
+
+      .instructions strong {
+        display: block;
+        margin-bottom: 8px;
+      }
+
+      .instructions ol {
+        margin-left: 20px;
+      }
+
+      .instructions li {
+        margin-bottom: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🔍 Asset QR Code Decoder</h1>
+        <p>BUA Group IT Asset Management</p>
+      </div>
+
+      <div class="instructions">
+        <strong>How to use:</strong>
+        <ol>
+          <li>Scan the QR code from an asset label using your phone</li>
+          <li>Copy the entire JSON text that appears</li>
+          <li>Paste it into the field below</li>
+          <li>Click "Decode Asset Info" to view formatted details</li>
+        </ol>
+      </div>
+
+      <div class="input-group">
+        <label for="qrInput">Paste QR Code Data (JSON):</label>
+        <textarea
+          id="qrInput"
+          placeholder='{"assetTag":"BUA-LAP-001","serialNumber":"SN12345","brand":"Dell",...}'
+        ></textarea>
+      </div>
+
+      <button class="button" onclick="decodeQR()">🔓 Decode Asset Info</button>
+
+      <div class="error" id="error"></div>
+
+      <div class="result" id="result">
+        <div class="result-header">
+          <h2>Asset Information</h2>
+          <p style="color: #666; font-size: 12px; margin-top: 5px">
+            Decoded from QR Code
+          </p>
+        </div>
+        <div class="result-body" id="resultBody"></div>
+      </div>
+    </div>
+
+    <script>
+      function decodeQR() {
+        const input = document.getElementById("qrInput").value.trim();
+        const errorEl = document.getElementById("error");
+        const resultEl = document.getElementById("result");
+        const resultBody = document.getElementById("resultBody");
+
+        // Hide previous results
+        errorEl.classList.remove("show");
+        resultEl.classList.remove("show");
+
+        if (!input) {
+          errorEl.textContent = "⚠️ Please paste the QR code data first";
+          errorEl.classList.add("show");
+          return;
+        }
+
+        try {
+          const data = JSON.parse(input);
+
+          // Field labels mapping
+          const fieldLabels = {
+            assetTag: "Asset Tag",
+            serialNumber: "Serial Number",
+            brand: "Brand",
+            model: "Model",
+            type: "Asset Type",
+            computeType: "Computer Type",
+            peripheralType: "Peripheral Type",
+            networkType: "Network Type",
+            assignedUser: "Assigned User",
+            department: "Department",
+            status: "Status",
+            location: "Location",
+            deployedDate: "Deployed Date",
+            warrantyExpiry: "Warranty Expiry",
+            staffId: "Staff ID",
+            emailAddress: "Email Address",
+            computerName: "Computer Name",
+          };
+
+          // Build result HTML
+          let html = "";
+          for (const [key, value] of Object.entries(data)) {
+            const label =
+              fieldLabels[key] || key.replace(/([A-Z])/g, " $1").trim();
+            html += `
+                        <div class="asset-field">
+                            <div class="field-label">${label}:</div>
+                            <div class="field-value">${value || "N/A"}</div>
+                        </div>
+                    `;
+          }
+
+          resultBody.innerHTML = html;
+          resultEl.classList.add("show");
+        } catch (e) {
+          errorEl.textContent =
+            "❌ Invalid JSON format. Make sure you copied the complete QR code data.";
+          errorEl.classList.add("show");
+        }
+      }
+
+      // Allow Enter key to decode (with Ctrl/Cmd)
+      document
+        .getElementById("qrInput")
+        .addEventListener("keydown", function (e) {
+          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+            decodeQR();
+          }
+        });
+    </script>
+  </body>
+</html>

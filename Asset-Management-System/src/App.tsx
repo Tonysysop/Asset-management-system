@@ -35,8 +35,8 @@ import {
   History,
   ArchiveRestore,
 } from "lucide-react";
-import { ToastProvider } from "./contexts/ToastContext";
 import { useToast } from "./hooks/useToast";
+import { Toaster } from "./components/ui/toaster";
 import AuditTrail from "./components/AuditTrail";
 import ConfirmationDialog from "./components/ConfirmationDialog";
 import RetrieveReasonDialog from "./components/RetrieveReasonDialog";
@@ -869,9 +869,10 @@ function AppContent() {
 
 function App() {
   return (
-    <ToastProvider>
+    <>
       <AppContent />
-    </ToastProvider>
+      <Toaster />
+    </>
   );
 }
 
