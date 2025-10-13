@@ -2,7 +2,6 @@ import React from "react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Search, X } from "lucide-react";
-import type { IncomingStock } from "../types/inventory";
 
 interface IncomingStockSearchBarProps {
   searchTerm: string;
