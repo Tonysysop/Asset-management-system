@@ -31,7 +31,9 @@ export default function LoginForm() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
       if (role === "admin" && normalizedEmail === "audit@buagroup.com") {
-        setFormError("Audit account cannot sign in as Admin. Please choose Auditor.");
+        setFormError(
+          "Audit account cannot sign in as Admin. Please choose Auditor."
+        );
         return;
       }
 
@@ -86,14 +88,22 @@ export default function LoginForm() {
               <Button
                 type="button"
                 onClick={() => setRole("admin")}
-                className={`h-9 px-3 ${role === "admin" ? "bg-bua-red text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                className={`h-9 px-3 ${
+                  role === "admin"
+                    ? "bg-bua-red text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
               >
                 Admin
               </Button>
               <Button
                 type="button"
                 onClick={() => setRole("auditor")}
-                className={`h-9 px-3 ${role === "auditor" ? "bg-bua-red text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                className={`h-9 px-3 ${
+                  role === "auditor"
+                    ? "bg-bua-red text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
               >
                 Auditor
               </Button>

@@ -23,7 +23,7 @@ interface ImportModalProps {
   sampleData: string;
   instructions: string[];
   expectedHeaders: string[];
-  importType?: "assets" | "receivables" | "licenses";
+  importType?: "assets" | "receivables" | "licenses" | "incoming-stock";
 }
 
 const ImportModal: React.FC<ImportModalProps> = ({
