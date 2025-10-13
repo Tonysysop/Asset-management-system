@@ -2,7 +2,7 @@ import React, { useRef } from "react";
 import Barcode from "react-barcode";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "./ui/button";
-import { Printer, Barcode as BarcodeIcon, QrCode } from "lucide-react";
+import { Printer } from "lucide-react";
 import type { Asset } from "../types/inventory";
 
 interface BarcodeLabelProps {
