@@ -7,6 +7,7 @@ import type {
   ReceivableUser,
   License,
   LicenseUser,
+  IncomingStock,
 } from "./types/inventory";
 import {
   exportToCSV,
@@ -17,6 +18,7 @@ import EnhancedDashboard from "./components/EnhancedDashboard";
 import InventoryTable from "./components/InventoryTable";
 import ReceivablesTable from "./components/ReceivablesTable";
 import LicensesTable from "./components/LicensesTable";
+import IncomingStockPage from "./components/IncomingStock";
 import SearchAndFilter from "./components/SearchAndFilter";
 import type { ExtendedAssetType } from "./components/SearchAndFilter";
 import AssetModal from "./components/AssetModal";
@@ -62,6 +64,11 @@ import {
   useUpdateLicense,
   useDeleteLicense,
 } from "./hooks/useLicenses";
+import {
+  useIncomingStock,
+  useAddIncomingStock,
+  useUpdateIncomingStock,
+} from "./hooks/useIncomingStock";
 import buaLogo from "./assets/bua-logo.jpg";
 
 function AppContent() {
@@ -72,6 +79,7 @@ function AppContent() {
   const { data: retrievedAssets = [] } = useRetrievedAssets();
   const { data: receivables = [] } = useReceivables();
   const { data: licenses = [] } = useLicenses();
+  const { data: incomingStock = [] } = useIncomingStock();
 
   // React Query mutation hooks
   const addAssetMutation = useAddAsset();
@@ -85,6 +93,8 @@ function AppContent() {
   const addLicenseMutation = useAddLicense();
   const updateLicenseMutation = useUpdateLicense();
   const deleteLicenseMutation = useDeleteLicense();
+  const addIncomingStockMutation = useAddIncomingStock();
+  const updateIncomingStockMutation = useUpdateIncomingStock();
   const [userRole, setUserRole] = useState<UserRole>("admin");
   const { toast } = useToast();
 
@@ -166,6 +176,7 @@ function AppContent() {
     | "receivables"
     | "licenses"
     | "retrieved"
+    | "incoming-stock"
     | "audit"
   >("dashboard");
 
@@ -524,6 +535,78 @@ function AppContent() {
     }
   };
 
+  // Incoming Stock handlers
+  const handleAddIncomingStock = async (stock: Omit<IncomingStock, "id">) => {
+    try {
+      await addIncomingStockMutation.mutateAsync(stock);
+      toast({
+        title: "Incoming Stock Added",
+        description: "New incoming stock item added successfully",
+      });
+    } catch {
+      toast({
+        title: "Add Error",
+        description: "Error adding incoming stock item",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAllocateIncomingStock = async (
+    stock: IncomingStock,
+    assetData: Omit<Asset, "id">
+  ) => {
+    try {
+      // Add to main inventory
+      await addAssetMutation.mutateAsync({
+        asset: assetData,
+        user: currentUser?.email || "Unknown User",
+      });
+
+      // Update incoming stock status to "in-use" and add allocation tracking
+      await updateIncomingStockMutation.mutateAsync({
+        id: stock.id,
+        stock: {
+          status: "in-use",
+          allocatedDate: new Date().toISOString().split("T")[0],
+          allocatedBy: currentUser?.email || "Unknown User",
+          allocatedAssetTag: assetData.assetTag,
+        },
+      });
+
+      toast({
+        title: "Asset Allocated",
+        description: "Asset successfully allocated and moved to inventory",
+      });
+    } catch {
+      toast({
+        title: "Allocation Error",
+        description: "Error allocating asset",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleImportIncomingStock = async (
+    stockItems: Omit<IncomingStock, "id">[]
+  ) => {
+    try {
+      for (const stock of stockItems) {
+        await addIncomingStockMutation.mutateAsync(stock);
+      }
+      toast({
+        title: "Import Successful",
+        description: `${stockItems.length} incoming stock items imported successfully`,
+      });
+    } catch {
+      toast({
+        title: "Import Error",
+        description: "Error importing incoming stock items",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleConfirmDelete = async () => {
     if (deleteConfirmation) {
       const { id, type } = deleteConfirmation;
@@ -694,6 +777,17 @@ function AppContent() {
                 <ArchiveRestore className="w-4 h-4 mr-2" />
                 Retrieved
               </button>
+              <button
+                onClick={() => setCurrentView("incoming-stock")}
+                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 cursor-pointer ${
+                  currentView === "incoming-stock"
+                    ? "border-bua-red text-bua-red"
+                    : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
+                }`}
+              >
+                <Package className="w-4 h-4 mr-2" />
+                Incoming Stock
+              </button>
               {userRole === "auditor" && (
                 <button
                   onClick={() => setCurrentView("audit")}
@@ -723,20 +817,22 @@ function AppContent() {
               onReceivableAdded={() => {}}
             />
           )}
-          {currentView !== "dashboard" && currentView !== "audit" && (
-            <SearchAndFilter
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              selectedType={selectedType}
-              onTypeChange={setSelectedType}
-              selectedStatus={selectedStatus}
-              onStatusChange={setSelectedStatus}
-              selectedDepartment={selectedDepartment}
-              onDepartmentChange={setSelectedDepartment}
-              departments={departments}
-              onExport={getExportHandler()}
-            />
-          )}
+          {currentView !== "dashboard" &&
+            currentView !== "audit" &&
+            currentView !== "incoming-stock" && (
+              <SearchAndFilter
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                selectedType={selectedType}
+                onTypeChange={setSelectedType}
+                selectedStatus={selectedStatus}
+                onStatusChange={setSelectedStatus}
+                selectedDepartment={selectedDepartment}
+                onDepartmentChange={setSelectedDepartment}
+                departments={departments}
+                onExport={getExportHandler()}
+              />
+            )}
           {currentView === "inventory" && (
             <InventoryTable
               assets={filteredAssets}
@@ -780,6 +876,14 @@ function AppContent() {
               onAdd={handleAddAsset}
               onRetrieve={handleRedeployFromRetrieved}
               isRetrievedView
+            />
+          )}
+          {currentView === "incoming-stock" && (
+            <IncomingStockPage
+              incomingStock={incomingStock}
+              onAddStock={handleAddIncomingStock}
+              onAllocateStock={handleAllocateIncomingStock}
+              onImportStock={handleImportIncomingStock}
             />
           )}
           {currentView === "audit" && <AuditTrail />}

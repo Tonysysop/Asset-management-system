@@ -1,5 +1,6 @@
 export type AssetType = "compute" | "peripheral" | "network";
 export type AssetStatus = "in-use" | "spare" | "repair" | "retired";
+export type IncomingStockStatus = "incoming" | "in-use";
 export type UserRole = "admin" | "user" | "auditor";
 export type ReceivableStatus = "pending" | "received" | "deployed";
 export type LicenseStatus = "active" | "expired" | "expiring-soon";
@@ -130,11 +131,80 @@ export interface User {
   role: UserRole;
 }
 
+export interface IncomingStock {
+  id: string;
+  serialNumber: string;
+  status: IncomingStockStatus;
+  assetType: AssetType;
+  assetSubtype: string;
+  brand: string;
+  model: string;
+  // Allocation tracking
+  allocatedDate?: string;
+  allocatedBy?: string;
+  allocatedAssetTag?: string;
+  // Additional fields for allocation
+  assetTag?: string;
+  specifications?: string;
+  deployedDate?: string;
+  warrantyExpiry?: string;
+  vendor?: string;
+  assignedUser?: string;
+  staffId?: string;
+  emailAddress?: string;
+  department?: string;
+  location?: string;
+  notes?: string;
+  description?: string;
+  peripheralType?: "printer" | "scanner" | "monitor";
+  networkType?: "router" | "switch" | "access_point";
+  itemName?: string;
+  computeType?: "laptop" | "desktop" | "mobile" | "server";
+  computerName?: string;
+  imeiNumber?: string;
+  // Monitor specific fields
+  screenSize?: string;
+  resolution?: string;
+  connectionType?: string;
+  // Network Asset specific fields
+  firmwareVersion?: string;
+  ipAddress?: string;
+  macAddress?: string;
+  numberOfPorts?: string;
+  rackPosition?: string;
+  configBackupLocation?: string;
+  uplinkDownlinkInfo?: string;
+  poeSupport?: string;
+  stackClusterMembership?: string;
+  // Server specific fields
+  hostname?: string;
+  processor?: string;
+  ramSize?: string;
+  storage?: string;
+  operatingSystem?: string;
+  productionIpAddress?: string;
+  managementMacAddress?: string;
+  powerSupply?: string;
+  serverRole?: string;
+  installedApplications?: string;
+  // Access Point specific fields
+  specificPhysicalLocation?: string;
+  ipAssignment?: string;
+  managementMethod?: string;
+  controllerName?: string;
+  controllerAddress?: string;
+  powerSource?: string;
+  connectedSwitchName?: string;
+  connectedSwitchPort?: string;
+  ssidsBroadcasted?: string;
+  frequencyBands?: string;
+}
+
 export interface Action {
   id: string;
   user: string;
   actionType: ActionType;
-  itemType: "asset" | "receivable" | "license";
+  itemType: "asset" | "receivable" | "license" | "incoming-stock";
   itemId: string;
   assetTag?: string;
   timestamp: Date;
