@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { Upload, FileText, CheckCircle, AlertTriangle, X } from "lucide-react";
 import Papa from "papaparse";
 import {
@@ -23,20 +23,16 @@ const IncomingStockImportModal: React.FC<IncomingStockImportModalProps> = ({
   onSave,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [parsedData, setParsedData] = useState<any[] | null>(null);
   const [transformedData, setTransformedData] = useState<
     Omit<IncomingStock, "id">[] | null
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const expectedHeaders = [
-    "Serial Number",
-    "Asset Type",
-    "Asset Subtype",
-    "Brand",
-    "Model",
-  ];
+  const expectedHeaders = useMemo(
+    () => ["Serial Number", "Asset Type", "Asset Subtype", "Brand", "Model"],
+    []
+  );
 
   const sampleData = `Serial Number,Asset Type,Asset Subtype,Brand,Model
 SN001,compute,laptop,Dell,Latitude 7420
@@ -47,7 +43,6 @@ SN003,network,router,Cisco,ISR 4331`;
     async (file: File) => {
       setIsLoading(true);
       setError(null);
-      setParsedData(null);
       setTransformedData(null);
 
       try {
@@ -65,8 +60,7 @@ SN003,network,router,Cisco,ISR 4331`;
               return;
             }
 
-            const data = results.data as any[];
-            setParsedData(data);
+            const data = results.data as Record<string, string>[];
 
             // Validate headers
             const headers = Object.keys(data[0] || {});
@@ -90,7 +84,7 @@ SN003,network,router,Cisco,ISR 4331`;
                 assetType: row["Asset Type"]
                   ?.toString()
                   .trim()
-                  .toLowerCase() as any,
+                  .toLowerCase() as "compute" | "peripheral" | "network",
                 assetSubtype:
                   row["Asset Subtype"]?.toString().trim().toLowerCase() || "",
                 brand: row["Brand"]?.toString().trim() || "",
@@ -180,7 +174,6 @@ SN003,network,router,Cisco,ISR 4331`;
   };
 
   const handleClose = () => {
-    setParsedData(null);
     setTransformedData(null);
     setError(null);
     setIsLoading(false);
