@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useCallback } from "react";
-import type { Receivable, UserRole } from "../types/inventory";
-import { Upload, Plus } from "lucide-react";
+import type { IncomingStock, UserRole } from "../types/inventory";
+import { Package, RefreshCw } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { incomingStockKeys } from "../hooks/useIncomingStock";
+import { receivableKeys } from "../hooks/useReceivables";
 import ReceivableTableRow from "./ReceivableTableRow";
-import { useAddReceivables } from "../hooks/useReceivables";
-import ImportModal from "./ImportModal";
-import { useToast } from "../hooks/useToast";
-import { useAuth } from "../contexts/AuthContext";
+import BatchHistoryAccordion from "./BatchHistoryAccordion";
+import ReceivablesSearchBar from "./ReceivablesSearchBar";
 import {
   Pagination,
   PaginationContent,
@@ -18,102 +19,51 @@ import {
 import { Table, TableHeader, TableBody, TableRow, TableHead } from "./ui/table";
 
 interface ReceivablesTableProps {
-  receivables: Receivable[];
+  incomingStock: IncomingStock[];
   userRole: UserRole;
-  onEdit: (receivable: Receivable) => void;
-  onDelete: (id: string) => void;
-  onAssign: (receivable: Receivable) => void;
-  onImport: () => void;
-  onAdd: () => void;
+  onAssign: (stock: IncomingStock) => void;
 }
 
 const ReceivablesTable: React.FC<ReceivablesTableProps> = ({
-  receivables,
+  incomingStock,
   userRole,
-  onEdit,
-  onDelete,
   onAssign,
-  onImport,
-  onAdd,
 }) => {
-  const [sortField, setSortField] = useState<keyof Receivable>("itemName");
+  const queryClient = useQueryClient();
+  const [sortField, setSortField] = useState<keyof IncomingStock>("itemName");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [currentView, setCurrentView] = useState<"management" | "history">(
+    "management"
+  );
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const itemsPerPage = 10;
-  const { toast } = useToast();
-  const { currentUser } = useAuth();
-  const addReceivablesMutation = useAddReceivables();
 
-  const handleFileImport = useCallback(
-    async (data: unknown[]) => {
-      try {
-        await addReceivablesMutation.mutateAsync({
-          receivables: data as Omit<Receivable, "id">[],
-          user: currentUser?.email || "unknown",
-        });
-        onImport();
-        toast({
-          title: "Import Success",
-          description: "Receivables imported successfully",
-        });
-      } catch {
-        toast({
-          title: "Import Error",
-          description: "Error importing receivables",
-          variant: "destructive",
-        });
-      }
-    },
-    [addReceivablesMutation, currentUser?.email, onImport, toast]
-  );
-
-  const receivableSampleData = `itemName,brand,description,serialNumber,supplierName,purchaseDate,quantity,warranty,notes,status
-Laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Apple Inc.,2023-10-26,1,1 Year,New laptop for design team,pending`;
-
-  const receivableInstructions = [
-    "The CSV file must have the following columns: itemName, brand, description, serialNumber, supplierName, purchaseDate, quantity, warranty, notes, status",
-    "The status must be one of: pending, received, deployed",
-    "Dates can be in any format (MM/DD/YYYY, YYYY-MM-DD, etc.) and will be automatically converted to 'October 15th, 2025' format.",
-  ];
-
-  const expectedReceivableHeaders = [
-    "itemName",
-    "brand",
-    "description",
-    "serialNumber",
-    "supplierName",
-    "purchaseDate",
-    "quantity",
-    "warranty",
-    "notes",
-    "status",
-  ];
-
-  // Memoized handlers to prevent unnecessary re-renders
-  const handleEdit = useCallback(
-    (receivable: Receivable) => {
-      onEdit(receivable);
-    },
-    [onEdit]
-  );
-
-  const handleDelete = useCallback(
-    (id: string) => {
-      onDelete(id);
-    },
-    [onDelete]
-  );
-
+  // Handle individual assignment
   const handleAssign = useCallback(
-    (receivable: Receivable) => {
-      onAssign(receivable);
+    (stock: IncomingStock) => {
+      onAssign(stock);
     },
     [onAssign]
   );
 
+  // Handle manual refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      // Invalidate and refetch all related queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: incomingStockKeys.all }),
+        queryClient.invalidateQueries({ queryKey: receivableKeys.all }),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [queryClient]);
+
   const handleSort = useCallback(
-    (field: keyof Receivable) => {
+    (field: keyof IncomingStock) => {
       if (field === sortField) {
         setSortDirection(sortDirection === "asc" ? "desc" : "asc");
       } else {
@@ -124,8 +74,33 @@ Laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Apple Inc.,2023-10-26,1,1 Year,New lapt
     [sortField, sortDirection]
   );
 
-  const sortedReceivables = useMemo(() => {
-    return [...receivables].sort((a, b) => {
+  const sortedIncomingStock = useMemo(() => {
+    if (!incomingStock || !Array.isArray(incomingStock)) {
+      return [];
+    }
+
+    // Filter out allocated items (status === "in-use") and items already assigned to sheets
+    let unallocatedItems = incomingStock.filter(
+      (item) => item.status !== "in-use" && !item.sheetId
+    );
+
+    // Apply search filter if search term exists
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      unallocatedItems = unallocatedItems.filter((item) => {
+        return (
+          item.serialNumber?.toLowerCase().includes(searchLower) ||
+          item.brand?.toLowerCase().includes(searchLower) ||
+          item.model?.toLowerCase().includes(searchLower) ||
+          item.vendor?.toLowerCase().includes(searchLower) ||
+          item.supplier?.toLowerCase().includes(searchLower) ||
+          item.assetType?.toLowerCase().includes(searchLower) ||
+          item.assetSubtype?.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+
+    return [...unallocatedItems].sort((a, b) => {
       const aValue = a[sortField];
       const bValue = b[sortField];
 
@@ -137,176 +112,241 @@ Laptop,Apple,MacBook Pro 16,C02Z1234ABCD,Apple Inc.,2023-10-26,1,1 Year,New lapt
       if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
       return 0;
     });
-  }, [receivables, sortField, sortDirection]);
+  }, [incomingStock, sortField, sortDirection, searchTerm]);
 
   // Pagination logic
-  const totalPages = Math.ceil(sortedReceivables.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedIncomingStock.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedReceivables = sortedReceivables.slice(startIndex, endIndex);
+  const paginatedIncomingStock = sortedIncomingStock.slice(
+    startIndex,
+    endIndex
+  );
 
-  // Reset to first page when receivables change
+  // Reset to first page when incoming stock changes or search term changes
+  const incomingStockLength = incomingStock?.length || 0;
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [receivables.length]);
+  }, [incomingStockLength, searchTerm]);
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       {userRole === "admin" && (
-        <div className="p-4 flex justify-end space-x-4">
-          <button
-            onClick={() => onAdd()}
-            className="flex items-center px-4 py-2 bg-bua-red text-white rounded-md hover:bg-bua-dark-red"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Receivable
-          </button>
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center px-4 py-2 bg-bua-red text-white rounded-md hover:bg-bua-dark-red"
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Import CSV
-          </button>
+        <div className="p-4">
+          {/* View Toggle */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-bua-red" />
+              <h2 className="text-lg font-semibold">Receivables</h2>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Refresh Button */}
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 hover:text-bua-red transition-colors disabled:opacity-50"
+                title="Refresh data"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </button>
+
+              {/* Toggle Buttons */}
+              <div className="flex bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setCurrentView("management")}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    currentView === "management"
+                      ? "bg-white text-bua-red shadow-sm"
+                      : "text-gray-600 hover:text-gray-800"
+                  }`}
+                >
+                  Asset Sheet Management
+                </button>
+                <button
+                  onClick={() => setCurrentView("history")}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    currentView === "history"
+                      ? "bg-white text-bua-red shadow-sm"
+                      : "text-gray-600 hover:text-gray-800"
+                  }`}
+                >
+                  Batch History
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Management View Header */}
+          {currentView === "management" && (
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">
+                  ({sortedIncomingStock.length} items available)
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
-      <ImportModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onImport={handleFileImport}
-        sampleData={receivableSampleData}
-        instructions={receivableInstructions}
-        expectedHeaders={expectedReceivableHeaders}
-        importType="receivables"
-      />
-      <div className="overflow-x-auto">
-        {paginatedReceivables.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">No receivables found.</p>
-            {userRole === "admin" && (
-              <button
-                onClick={() => onAdd()}
-                className="flex items-center mx-auto px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Receivable
-              </button>
+      {/* Management View */}
+      {currentView === "management" && (
+        <>
+          {/* Search Bar */}
+          <div className="p-4 border-b">
+            <ReceivablesSearchBar
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+            />
+          </div>
+
+          {/* Results Count */}
+          <div className="px-4 py-2 bg-gray-50 border-b">
+            <span className="text-sm text-gray-500">
+              {searchTerm.trim()
+                ? `${sortedIncomingStock.length} items found for "${searchTerm}"`
+                : `${sortedIncomingStock.length} items available`}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            {paginatedIncomingStock.length === 0 ? (
+              <div className="text-center py-12">
+                <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <p className="text-gray-500 mb-4">
+                  {searchTerm.trim()
+                    ? `No items found matching "${searchTerm}"`
+                    : "No unallocated stock items found."}
+                </p>
+                <p className="text-sm text-gray-400">
+                  {searchTerm.trim()
+                    ? "Try adjusting your search terms or clear the search to see all items."
+                    : "All stock items have been allocated or are already in sheets. New items added by the store keeper will appear here for allocation."}
+                </p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead onClick={() => handleSort("brand")}>
+                      Brand
+                    </TableHead>
+                    <TableHead onClick={() => handleSort("model")}>
+                      Model
+                    </TableHead>
+                    <TableHead onClick={() => handleSort("serialNumber")}>
+                      Serial Number
+                    </TableHead>
+                    <TableHead onClick={() => handleSort("supplier")}>
+                      Supplier
+                    </TableHead>
+                    <TableHead onClick={() => handleSort("vendor")}>
+                      Vendor
+                    </TableHead>
+                    <TableHead onClick={() => handleSort("status")}>
+                      Status
+                    </TableHead>
+                    {(userRole === "admin" || userRole === "auditor") && (
+                      <TableHead>Actions</TableHead>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedIncomingStock.map((stock) => (
+                    <ReceivableTableRow
+                      key={stock.id}
+                      stock={stock}
+                      userRole={userRole as "admin" | "auditor"}
+                      onAssign={handleAssign}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead
-                  className="pl-6"
-                  onClick={() => handleSort("itemName")}
-                >
-                  Item Name
-                </TableHead>
-                <TableHead onClick={() => handleSort("brand")}>Brand</TableHead>
-                <TableHead onClick={() => handleSort("serialNumber")}>
-                  Serial Number
-                </TableHead>
-                <TableHead onClick={() => handleSort("supplierName")}>
-                  Supplier
-                </TableHead>
-                <TableHead onClick={() => handleSort("quantity")}>
-                  Quantity
-                </TableHead>
-                <TableHead onClick={() => handleSort("status")}>
-                  Status
-                </TableHead>
-                {(userRole === "admin" || userRole === "auditor") && (
-                  <TableHead>Actions</TableHead>
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedReceivables.map((receivable) => (
-                <ReceivableTableRow
-                  key={receivable.id}
-                  receivable={receivable}
-                  userRole={userRole as "admin" | "auditor"}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onAssign={handleAssign}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t">
-          <div className="text-sm text-muted-foreground">
-            Showing {startIndex + 1} to{" "}
-            {Math.min(endIndex, sortedReceivables.length)} of{" "}
-            {sortedReceivables.length} receivables
-          </div>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(prev - 1, 1))
-                  }
-                  className={
-                    currentPage === 1
-                      ? "pointer-events-none opacity-50"
-                      : "cursor-pointer"
-                  }
-                />
-              </PaginationItem>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to{" "}
+                {Math.min(endIndex, sortedIncomingStock.length)} of{" "}
+                {sortedIncomingStock.length} items
+              </div>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(prev - 1, 1))
+                      }
+                      className={
+                        currentPage === 1
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
 
-              {/* Page numbers */}
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (page) => {
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1)
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                          className="cursor-pointer"
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  } else if (
-                    page === currentPage - 2 ||
-                    page === currentPage + 2
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    );
-                  }
-                  return null;
-                }
-              )}
+                  {/* Page numbers */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => {
+                      if (
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      ) {
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      } else if (
+                        page === currentPage - 2 ||
+                        page === currentPage + 2
+                      ) {
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        );
+                      }
+                      return null;
+                    }
+                  )}
 
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                  }
-                  className={
-                    currentPage === totalPages
-                      ? "pointer-events-none opacity-50"
-                      : "cursor-pointer"
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                      }
+                      className={
+                        currentPage === totalPages
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* History View */}
+      {currentView === "history" && (
+        <div className="p-4">
+          <BatchHistoryAccordion incomingStock={incomingStock || []} />
         </div>
       )}
     </div>

@@ -17,6 +17,10 @@ const IncomingStockForm: React.FC<IncomingStockFormProps> = ({ onSubmit }) => {
     assetSubtype: "",
     brand: "",
     model: "",
+    vendor: "",
+    batchTag: "",
+    batchName: "",
+    batchDescription: "",
   });
 
   const assetTypeOptions = [
@@ -53,13 +57,21 @@ const IncomingStockForm: React.FC<IncomingStockFormProps> = ({ onSubmit }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.serialNumber || !formData.assetSubtype || !formData.brand || !formData.model) {
+    if (
+      !formData.serialNumber ||
+      !formData.assetSubtype ||
+      !formData.brand ||
+      !formData.model ||
+      !formData.vendor
+    ) {
       return;
     }
 
     const newStock: Omit<IncomingStock, "id"> = {
       ...formData,
       status: "incoming",
+      batchCreatedDate: new Date().toISOString(),
+      batchCreatedBy: "store@buagroup.com", // Store keeper email
     };
 
     onSubmit(newStock);
@@ -69,11 +81,15 @@ const IncomingStockForm: React.FC<IncomingStockFormProps> = ({ onSubmit }) => {
       assetSubtype: "",
       brand: "",
       model: "",
+      vendor: "",
+      batchTag: "",
+      batchName: "",
+      batchDescription: "",
     });
   };
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [field]: value,
       // Reset subtype when asset type changes
@@ -97,7 +113,9 @@ const IncomingStockForm: React.FC<IncomingStockFormProps> = ({ onSubmit }) => {
               <Input
                 id="serialNumber"
                 value={formData.serialNumber}
-                onChange={(e) => handleInputChange("serialNumber", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("serialNumber", e.target.value)
+                }
                 placeholder="Enter serial number"
                 required
               />
@@ -108,7 +126,9 @@ const IncomingStockForm: React.FC<IncomingStockFormProps> = ({ onSubmit }) => {
               <select
                 id="assetType"
                 value={formData.assetType}
-                onChange={(e) => handleInputChange("assetType", e.target.value as AssetType)}
+                onChange={(e) =>
+                  handleInputChange("assetType", e.target.value as AssetType)
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bua-red focus:border-transparent"
                 required
               >
@@ -125,7 +145,9 @@ const IncomingStockForm: React.FC<IncomingStockFormProps> = ({ onSubmit }) => {
               <select
                 id="assetSubtype"
                 value={formData.assetSubtype}
-                onChange={(e) => handleInputChange("assetSubtype", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("assetSubtype", e.target.value)
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bua-red focus:border-transparent"
                 required
                 disabled={!formData.assetType}
@@ -159,6 +181,59 @@ const IncomingStockForm: React.FC<IncomingStockFormProps> = ({ onSubmit }) => {
                 placeholder="Enter model"
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="vendor">Vendor *</Label>
+              <Input
+                id="vendor"
+                value={formData.vendor}
+                onChange={(e) => handleInputChange("vendor", e.target.value)}
+                placeholder="Enter vendor"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Batch Information Section */}
+          <div className="border-t pt-4">
+            <h3 className="text-lg font-medium mb-4">Batch Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="batchTag">Batch Tag</Label>
+                <Input
+                  id="batchTag"
+                  value={formData.batchTag}
+                  onChange={(e) =>
+                    handleInputChange("batchTag", e.target.value)
+                  }
+                  placeholder="e.g., BATCH-2024-001"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="batchName">Batch Name</Label>
+                <Input
+                  id="batchName"
+                  value={formData.batchName}
+                  onChange={(e) =>
+                    handleInputChange("batchName", e.target.value)
+                  }
+                  placeholder="e.g., Q1 2024 Laptop Delivery"
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2 lg:col-span-1">
+                <Label htmlFor="batchDescription">Batch Description</Label>
+                <Input
+                  id="batchDescription"
+                  value={formData.batchDescription}
+                  onChange={(e) =>
+                    handleInputChange("batchDescription", e.target.value)
+                  }
+                  placeholder="Brief description of this batch"
+                />
+              </div>
             </div>
           </div>
 

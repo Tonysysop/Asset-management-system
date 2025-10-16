@@ -33,6 +33,12 @@ export interface Asset {
   status: AssetStatus;
   location: string;
   notes: string;
+  // Batch tracking (inherited from incoming stock)
+  batchTag?: string;
+  batchName?: string;
+  batchDescription?: string;
+  batchCreatedDate?: string;
+  batchCreatedBy?: string;
   description?: string;
   peripheralType?: "printer" | "scanner" | "monitor";
   networkType?: "router" | "switch" | "access_point";
@@ -139,6 +145,15 @@ export interface IncomingStock {
   assetSubtype: string;
   brand: string;
   model: string;
+  supplier?: string;
+  receivedDate?: string;
+  sheetId?: string;
+  // Batch/Tag tracking
+  batchTag?: string;
+  batchName?: string;
+  batchDescription?: string;
+  batchCreatedDate?: string;
+  batchCreatedBy?: string;
   // Allocation tracking
   allocatedDate?: string;
   allocatedBy?: string;
@@ -204,9 +219,55 @@ export interface Action {
   id: string;
   user: string;
   actionType: ActionType;
-  itemType: "asset" | "receivable" | "license" | "incoming-stock";
+  itemType:
+    | "asset"
+    | "receivable"
+    | "license"
+    | "incoming-stock"
+    | "consumable";
   itemId: string;
   assetTag?: string;
   timestamp: Date;
   details: string;
+}
+
+export type ConsumableCategory =
+  | "cables"
+  | "peripherals"
+  | "office_supplies"
+  | "networking"
+  | "accessories"
+  | "other";
+
+export interface Consumable {
+  id: string;
+  itemName: string;
+  category: ConsumableCategory;
+  description: string;
+  currentQuantity: number;
+  reorderPoint: number;
+  unitCost: number;
+  supplier?: string;
+  lastReceivedDate?: string;
+  lastIssuedDate?: string;
+  totalReceived: number;
+  totalIssued: number;
+  notes?: string;
+}
+
+export interface ConsumableTransaction {
+  id: string;
+  consumableId: string;
+  consumableName: string;
+  transactionType: "receive" | "issue";
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+  transactionDate: string;
+  issuedTo?: string;
+  issuedBy: string;
+  department?: string;
+  reason?: string;
+  reference?: string;
+  notes?: string;
 }

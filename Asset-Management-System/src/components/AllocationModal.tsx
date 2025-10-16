@@ -46,6 +46,7 @@ const AllocationModal: React.FC<AllocationModalProps> = ({
   onSave,
   stock,
 }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     specifications: "",
     deployedDate: undefined as Date | undefined,
@@ -152,84 +153,99 @@ const AllocationModal: React.FC<AllocationModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stock) return;
+    if (!stock || isSubmitting) return;
 
-    // Generate asset tag
-    const generatedAssetTag = await generateAssetTag(
-      stock.assetType,
-      stock.assetSubtype,
-      formData.deployedDate
-    );
+    setIsSubmitting(true);
+    try {
+      // Generate asset tag
+      const generatedAssetTag = await generateAssetTag(
+        stock.assetType,
+        stock.assetSubtype,
+        formData.deployedDate
+      );
 
-    const assetData: Omit<Asset, "id"> = {
-      assetTag: generatedAssetTag,
-      serialNumber: stock.serialNumber,
-      type: stock.assetType,
-      brand: stock.brand,
-      model: stock.model,
-      specifications: formData.specifications,
-      deployedDate: formData.deployedDate
-        ? format(formData.deployedDate, "yyyy-MM-dd")
-        : "",
-      warrantyExpiry: formData.warrantyExpiry
-        ? format(formData.warrantyExpiry, "yyyy-MM-dd")
-        : "",
-      vendor: formData.vendor,
-      assignedUser: formData.assignedUser,
-      staffId: formData.staffId || "",
-      emailAddress: formData.emailAddress || "",
-      department: formData.department,
-      status: "in-use",
-      location: formData.location,
-      description: formData.description || "",
-      peripheralType:
-        stock.assetType === "peripheral" ? (stock.assetSubtype as any) : "",
-      networkType:
-        stock.assetType === "network" ? (stock.assetSubtype as any) : "",
-      itemName: stock.itemName || "",
-      computeType:
-        stock.assetType === "compute" ? (stock.assetSubtype as any) : "",
-      computerName: formData.computerName || "",
-      imeiNumber: stock.imeiNumber || "",
-      // Monitor specific fields
-      screenSize: formData.screenSize || "",
-      resolution: formData.resolution || "",
-      connectionType: formData.connectionType || "",
-      // Network Asset specific fields
-      firmwareVersion: formData.firmwareVersion || "",
-      ipAddress: formData.ipAddress || "",
-      macAddress: formData.macAddress || "",
-      numberOfPorts: formData.numberOfPorts || "",
-      rackPosition: formData.rackPosition || "",
-      configBackupLocation: formData.configBackupLocation || "",
-      uplinkDownlinkInfo: formData.uplinkDownlinkInfo || "",
-      poeSupport: formData.poeSupport || "",
-      stackClusterMembership: formData.stackClusterMembership || "",
-      // Server specific fields
-      hostname: formData.hostname || "",
-      processor: formData.processor || "",
-      ramSize: formData.ramSize || "",
-      storage: formData.storage || "",
-      operatingSystem: formData.operatingSystem || "",
-      productionIpAddress: formData.productionIpAddress || "",
-      managementMacAddress: formData.managementMacAddress || "",
-      powerSupply: formData.powerSupply || "",
-      serverRole: formData.serverRole || "",
-      installedApplications: formData.installedApplications || "",
-      // Access Point specific fields
-      specificPhysicalLocation: formData.specificPhysicalLocation || "",
-      ipAssignment: formData.ipAssignment || "",
-      managementMethod: formData.managementMethod || "",
-      controllerName: formData.controllerName || "",
-      controllerAddress: formData.controllerAddress || "",
-      powerSource: formData.powerSource || "",
-      connectedSwitchName: formData.connectedSwitchName || "",
-      connectedSwitchPort: formData.connectedSwitchPort || "",
-      ssidsBroadcasted: formData.ssidsBroadcasted || "",
-      frequencyBands: formData.frequencyBands || "",
-    };
+      const assetData: Omit<Asset, "id"> = {
+        assetTag: generatedAssetTag,
+        serialNumber: stock.serialNumber,
+        type: stock.assetType,
+        brand: stock.brand,
+        model: stock.model,
+        specifications: formData.specifications,
+        deployedDate: formData.deployedDate
+          ? format(formData.deployedDate, "yyyy-MM-dd")
+          : "",
+        warrantyExpiry: formData.warrantyExpiry
+          ? format(formData.warrantyExpiry, "yyyy-MM-dd")
+          : "",
+        vendor: stock.vendor || formData.vendor,
+        assignedUser: formData.assignedUser,
+        staffId: formData.staffId || "",
+        emailAddress: formData.emailAddress || "",
+        department: formData.department,
+        status: "in-use",
+        location: formData.location,
+        description: formData.description || "",
+        // Batch tracking (preserved from incoming stock)
+        batchTag: stock.batchTag,
+        batchName: stock.batchName,
+        batchDescription: stock.batchDescription,
+        batchCreatedDate: stock.batchCreatedDate,
+        batchCreatedBy: stock.batchCreatedBy,
+        peripheralType:
+          stock.assetType === "peripheral" ? (stock.assetSubtype as any) : "",
+        networkType:
+          stock.assetType === "network" ? (stock.assetSubtype as any) : "",
+        itemName: stock.itemName || "",
+        computeType:
+          stock.assetType === "compute" ? (stock.assetSubtype as any) : "",
+        computerName: formData.computerName || "",
+        imeiNumber: stock.imeiNumber || "",
+        // Monitor specific fields
+        screenSize: formData.screenSize || "",
+        resolution: formData.resolution || "",
+        connectionType: formData.connectionType || "",
+        // Network Asset specific fields
+        firmwareVersion: formData.firmwareVersion || "",
+        ipAddress: formData.ipAddress || "",
+        macAddress: formData.macAddress || "",
+        numberOfPorts: formData.numberOfPorts || "",
+        rackPosition: formData.rackPosition || "",
+        configBackupLocation: formData.configBackupLocation || "",
+        uplinkDownlinkInfo: formData.uplinkDownlinkInfo || "",
+        poeSupport: formData.poeSupport || "",
+        stackClusterMembership: formData.stackClusterMembership || "",
+        // Server specific fields
+        hostname: formData.hostname || "",
+        processor: formData.processor || "",
+        ramSize: formData.ramSize || "",
+        storage: formData.storage || "",
+        operatingSystem: formData.operatingSystem || "",
+        productionIpAddress: formData.productionIpAddress || "",
+        managementMacAddress: formData.managementMacAddress || "",
+        powerSupply: formData.powerSupply || "",
+        serverRole: formData.serverRole || "",
+        installedApplications: formData.installedApplications || "",
+        // Access Point specific fields
+        specificPhysicalLocation: formData.specificPhysicalLocation || "",
+        ipAssignment: formData.ipAssignment || "",
+        managementMethod: formData.managementMethod || "",
+        controllerName: formData.controllerName || "",
+        controllerAddress: formData.controllerAddress || "",
+        powerSource: formData.powerSource || "",
+        connectedSwitchName: formData.connectedSwitchName || "",
+        connectedSwitchPort: formData.connectedSwitchPort || "",
+        ssidsBroadcasted: formData.ssidsBroadcasted || "",
+        frequencyBands: formData.frequencyBands || "",
+      };
 
-    onSave(stock, assetData);
+      await onSave(stock, assetData);
+      // Modal will be closed by parent component after successful save
+    } catch (error) {
+      console.error("Error during allocation:", error);
+      // Error handling is done in the parent component
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleInputChange = (
@@ -928,9 +944,11 @@ const AllocationModal: React.FC<AllocationModalProps> = ({
                 <Label htmlFor="vendor">Vendor</Label>
                 <Input
                   id="vendor"
-                  value={formData.vendor}
+                  value={stock.vendor || formData.vendor}
                   onChange={(e) => handleInputChange("vendor", e.target.value)}
                   placeholder="Enter vendor"
+                  disabled={!!stock.vendor}
+                  className={stock.vendor ? "bg-gray-100" : ""}
                 />
               </div>
 
@@ -1119,13 +1137,22 @@ const AllocationModal: React.FC<AllocationModalProps> = ({
           )}
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
               <X className="w-4 h-4 mr-2" />
               Cancel
             </Button>
-            <Button type="submit" className="bg-bua-red hover:bg-bua-red/90">
+            <Button
+              type="submit"
+              className="bg-bua-red hover:bg-bua-red/90"
+              disabled={isSubmitting}
+            >
               <Save className="w-4 h-4 mr-2" />
-              Save & Allocate
+              {isSubmitting ? "Allocating..." : "Save & Allocate"}
             </Button>
           </div>
         </form>

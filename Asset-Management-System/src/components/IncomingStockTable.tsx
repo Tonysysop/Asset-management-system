@@ -17,12 +17,15 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Trash2,
 } from "lucide-react";
 import type { IncomingStock } from "../types/inventory";
 
 interface IncomingStockTableProps {
   incomingStock: IncomingStock[];
-  onAllocate: (stock: IncomingStock) => void;
+  onAllocate?: (stock: IncomingStock) => void;
+  onDelete?: (stockId: string) => void;
+  readOnly?: boolean;
 }
 
 type SortField =
@@ -40,6 +43,8 @@ type SortDirection = "asc" | "desc";
 const IncomingStockTable: React.FC<IncomingStockTableProps> = ({
   incomingStock,
   onAllocate,
+  onDelete,
+  readOnly = false,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showAllocated, setShowAllocated] = useState(false);
@@ -313,7 +318,7 @@ const IncomingStockTable: React.FC<IncomingStockTableProps> = ({
                   </TableHead>
                 </>
               )}
-              {!showAllocated && <TableHead>Action</TableHead>}
+              {!showAllocated && !readOnly && <TableHead>Action</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -348,16 +353,32 @@ const IncomingStockTable: React.FC<IncomingStockTableProps> = ({
                     <TableCell>{item.allocatedBy || "N/A"}</TableCell>
                   </>
                 )}
-                {!showAllocated && (
+                {!showAllocated && !readOnly && (onAllocate || onDelete) && (
                   <TableCell>
-                    <Button
-                      onClick={() => onAllocate(item)}
-                      size="sm"
-                      className="bg-bua-red hover:bg-bua-red/90 flex items-center gap-1"
-                    >
-                      <ArrowRight className="w-3 h-3" />
-                      Allocate
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {onAllocate && (
+                        <Button
+                          onClick={() => onAllocate(item)}
+                          size="sm"
+                          className="bg-bua-red hover:bg-bua-red/90 flex items-center gap-1"
+                        >
+                          <ArrowRight className="w-3 h-3" />
+                          Allocate
+                        </Button>
+                      )}
+                      {onDelete && (
+                        <Button
+                          onClick={() => onDelete(item.id)}
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 border-red-600 hover:bg-red-50 flex items-center gap-1"
+                          disabled={item.status === "in-use"}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Delete
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 )}
               </TableRow>

@@ -173,6 +173,7 @@ const IncomingStockPage: React.FC<IncomingStockProps> = ({
       <IncomingStockTable
         incomingStock={filteredIncomingStock}
         onAllocate={handleAllocate}
+        readOnly={false}
       />
 
       <AllocationModal

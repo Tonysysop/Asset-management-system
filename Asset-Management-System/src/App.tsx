@@ -3,27 +3,20 @@ import type {
   Asset,
   AssetStatus,
   UserRole,
-  Receivable,
-  ReceivableUser,
   License,
   LicenseUser,
   IncomingStock,
 } from "./types/inventory";
-import {
-  exportToCSV,
-  exportReceivablesToCSV,
-  exportLicensesToCSV,
-} from "./utils/csvExport";
+import { exportToCSV, exportLicensesToCSV } from "./utils/csvExport";
 import EnhancedDashboard from "./components/EnhancedDashboard";
 import InventoryTable from "./components/InventoryTable";
 import ReceivablesTable from "./components/ReceivablesTable";
 import LicensesTable from "./components/LicensesTable";
-import IncomingStockPage from "./components/IncomingStock";
+import StockKeeperView from "./components/StockKeeperView";
 import SearchAndFilter from "./components/SearchAndFilter";
 import type { ExtendedAssetType } from "./components/SearchAndFilter";
 import AssetModal from "./components/AssetModal";
-import ReceivableModal from "./components/ReceivableModal";
-import ReceivableAssignmentModal from "./components/ReceivableAssignmentModal";
+import AllocationModal from "./components/AllocationModal";
 import LicenseModal from "./components/LicenseModal";
 import LicenseAssignmentModal from "./components/LicenseAssignmentModal";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -53,12 +46,6 @@ import {
   useDeleteRetrievedAsset,
 } from "./hooks/useAssets";
 import {
-  useReceivables,
-  useAddReceivable,
-  useUpdateReceivable,
-  useDeleteReceivable,
-} from "./hooks/useReceivables";
-import {
   useLicenses,
   useAddLicense,
   useUpdateLicense,
@@ -68,7 +55,10 @@ import {
   useIncomingStock,
   useAddIncomingStock,
   useUpdateIncomingStock,
+  useDeleteIncomingStock,
 } from "./hooks/useIncomingStock";
+import { useConsumablesManagement } from "./hooks/useConsumables";
+import ConsumablesDataInitializer from "./components/ConsumablesDataInitializer";
 import buaLogo from "./assets/bua-logo.jpg";
 
 function AppContent() {
@@ -77,9 +67,11 @@ function AppContent() {
   // React Query hooks for data fetching
   const { data: assets = [] } = useAssets();
   const { data: retrievedAssets = [] } = useRetrievedAssets();
-  const { data: receivables = [] } = useReceivables();
   const { data: licenses = [] } = useLicenses();
   const { data: incomingStock = [] } = useIncomingStock();
+
+  // Consumables management
+  const consumablesManagement = useConsumablesManagement();
 
   // React Query mutation hooks
   const addAssetMutation = useAddAsset();
@@ -87,14 +79,12 @@ function AppContent() {
   const deleteAssetMutation = useDeleteAsset();
   const retrieveAssetMutation = useRetrieveAsset();
   const deleteRetrievedAssetMutation = useDeleteRetrievedAsset();
-  const addReceivableMutation = useAddReceivable();
-  const updateReceivableMutation = useUpdateReceivable();
-  const deleteReceivableMutation = useDeleteReceivable();
   const addLicenseMutation = useAddLicense();
   const updateLicenseMutation = useUpdateLicense();
   const deleteLicenseMutation = useDeleteLicense();
   const addIncomingStockMutation = useAddIncomingStock();
   const updateIncomingStockMutation = useUpdateIncomingStock();
+  const deleteIncomingStockMutation = useDeleteIncomingStock();
   const [userRole, setUserRole] = useState<UserRole>("admin");
   const { toast } = useToast();
 
@@ -176,26 +166,20 @@ function AppContent() {
     | "receivables"
     | "licenses"
     | "retrieved"
-    | "incoming-stock"
     | "audit"
   >("dashboard");
 
   // Modal states
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
   const [isRedeploying, setIsRedeploying] = useState(false);
-  const [isReceivableModalOpen, setIsReceivableModalOpen] = useState(false);
-  const [isReceivableAssignmentModalOpen, setIsReceivableAssignmentModalOpen] =
-    useState(false);
+  const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
+  const [allocatingStock, setAllocatingStock] = useState<IncomingStock | null>(
+    null
+  );
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
   const [isLicenseAssignmentModalOpen, setIsLicenseAssignmentModalOpen] =
     useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | undefined>();
-  const [editingReceivable, setEditingReceivable] = useState<
-    Receivable | undefined
-  >();
-  const [assigningReceivable, setAssigningReceivable] = useState<
-    Receivable | undefined
-  >();
   const [editingLicense, setEditingLicense] = useState<License | undefined>();
   const [assigningLicense, setAssigningLicense] = useState<
     License | undefined
@@ -203,7 +187,7 @@ function AppContent() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     id: string;
-    type: "asset" | "receivable" | "license";
+    type: "asset" | "license";
     assetTag?: string;
   } | null>(null);
   const [redeployConfirmation, setRedeployConfirmation] =
@@ -256,23 +240,6 @@ function AppContent() {
       return matchesSearch && matchesType && matchesStatus && matchesDepartment;
     });
   }, [assets, searchTerm, selectedType, selectedStatus, selectedDepartment]);
-
-  // Filter receivables based on search
-  const filteredReceivables = useMemo(() => {
-    return receivables.filter((receivable) => {
-      const matchesSearch =
-        receivable.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        receivable.serialNumber
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        receivable.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        receivable.supplierName
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase());
-
-      return matchesSearch;
-    });
-  }, [receivables, searchTerm]);
 
   // Filter licenses based on search
   const filteredLicenses = useMemo(() => {
@@ -377,82 +344,6 @@ function AppContent() {
       toast({
         title: "Save Error",
         description: "Error saving asset",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Receivable handlers
-  const handleAddReceivable = () => {
-    setEditingReceivable(undefined);
-    setIsReceivableModalOpen(true);
-  };
-
-  const handleEditReceivable = (receivable: Receivable) => {
-    setEditingReceivable(receivable);
-    setIsReceivableModalOpen(true);
-  };
-
-  const handleDeleteReceivable = (id: string) => {
-    setDeleteConfirmation({ isOpen: true, id, type: "receivable" });
-  };
-
-  const handleSaveReceivable = async (
-    receivableData: Omit<Receivable, "id">
-  ) => {
-    try {
-      if (editingReceivable) {
-        await updateReceivableMutation.mutateAsync({
-          id: editingReceivable.id,
-          receivable: receivableData,
-          user: currentUser?.email || "Unknown User",
-        });
-        toast({
-          title: "Receivable Updated",
-          description: "Receivable updated successfully",
-        });
-      } else {
-        await addReceivableMutation.mutateAsync({
-          receivable: receivableData,
-          user: currentUser?.email || "Unknown User",
-        });
-        toast({
-          title: "Receivable Added",
-          description: "Receivable added successfully",
-        });
-      }
-    } catch {
-      toast({
-        title: "Save Error",
-        description: "Error saving receivable",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAssignReceivable = (receivable: Receivable) => {
-    setAssigningReceivable(receivable);
-    setIsReceivableAssignmentModalOpen(true);
-  };
-
-  const handleSaveReceivableAssignment = async (
-    receivableId: string,
-    assignedUsers: ReceivableUser[]
-  ) => {
-    try {
-      await updateReceivableMutation.mutateAsync({
-        id: receivableId,
-        receivable: { assignedUsers },
-        user: currentUser?.email || "Unknown User",
-      });
-      toast({
-        title: "Receivables Updated",
-        description: "Receivable assignments updated successfully",
-      });
-    } catch {
-      toast({
-        title: "Update Error",
-        description: "Error updating receivable assignments",
         variant: "destructive",
       });
     }
@@ -578,12 +469,18 @@ function AppContent() {
         title: "Asset Allocated",
         description: "Asset successfully allocated and moved to inventory",
       });
+
+      // Close the modal after successful allocation
+      setIsAllocationModalOpen(false);
+      setAllocatingStock(null);
     } catch {
       toast({
         title: "Allocation Error",
         description: "Error allocating asset",
         variant: "destructive",
       });
+      // Re-throw the error so the modal can handle it
+      throw new Error("Allocation failed");
     }
   };
 
@@ -607,6 +504,40 @@ function AppContent() {
     }
   };
 
+  const handleDeleteIncomingStock = async (stockId: string) => {
+    try {
+      const stockItem = incomingStock.find((item) => item.id === stockId);
+      if (!stockItem) {
+        toast({
+          title: "Error",
+          description: "Stock item not found",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (stockItem.status === "in-use") {
+        toast({
+          title: "Cannot Delete",
+          description: "Cannot delete allocated stock items",
+          variant: "destructive",
+        });
+        return;
+      }
+      await deleteIncomingStockMutation.mutateAsync(stockId);
+      toast({
+        title: "Stock Item Deleted",
+        description: "Incoming stock item deleted successfully",
+      });
+    } catch (error) {
+      console.error("Error deleting incoming stock:", error);
+      toast({
+        title: "Delete Error",
+        description: "Error deleting incoming stock item",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleConfirmDelete = async () => {
     if (deleteConfirmation) {
       const { id, type } = deleteConfirmation;
@@ -619,15 +550,6 @@ function AppContent() {
           toast({
             title: "Asset Deleted",
             description: "Asset deleted successfully",
-          });
-        } else if (type === "receivable") {
-          await deleteReceivableMutation.mutateAsync({
-            id,
-            user: currentUser?.email || "Unknown User",
-          });
-          toast({
-            title: "Receivable Deleted",
-            description: "Receivable deleted successfully",
           });
         } else if (type === "license") {
           await deleteLicenseMutation.mutateAsync({
@@ -655,10 +577,6 @@ function AppContent() {
     exportToCSV(filteredAssets, "it-inventory");
   };
 
-  const handleExportReceivables = () => {
-    exportReceivablesToCSV(filteredReceivables, "receivables");
-  };
-
   const handleExportLicenses = () => {
     exportLicensesToCSV(filteredLicenses, "licenses");
   };
@@ -672,14 +590,102 @@ function AppContent() {
     switch (currentView) {
       case "inventory":
         return handleExportAssets;
-      case "receivables":
-        return handleExportReceivables;
       case "licenses":
         return handleExportLicenses;
       default:
         return handleExportAssets;
     }
   };
+
+  // Check if user is store keeper
+  const isStoreKeeper = currentUser?.email === "store@buagroup.com";
+
+  // If store keeper, show simplified view with only incoming stock
+  if (isStoreKeeper) {
+    return (
+      <ProtectedRoute>
+        <ConsumablesDataInitializer>
+          <StockKeeperView
+            incomingStock={incomingStock}
+            consumables={consumablesManagement.consumables}
+            consumableTransactions={consumablesManagement.transactions}
+            userEmail={currentUser?.email || ""}
+            onLogout={handleLogout}
+            onAddStock={handleAddIncomingStock}
+            onImportStock={handleImportIncomingStock}
+            onDeleteStock={handleDeleteIncomingStock}
+            onReceiveConsumable={async (consumable) => {
+              try {
+                await consumablesManagement.createConsumableWithStock({
+                  consumable,
+                  initialQuantity: consumable.currentQuantity,
+                  supplier: consumable.supplier,
+                  notes: consumable.notes,
+                });
+                toast({
+                  title: "Consumable Received",
+                  description: `${consumable.itemName} added to inventory`,
+                });
+              } catch (error) {
+                console.error("Error receiving consumable:", error);
+                toast({
+                  title: "Error",
+                  description: "Failed to receive consumable",
+                  variant: "destructive",
+                });
+              }
+            }}
+            onIssueConsumable={async (transaction) => {
+              try {
+                await consumablesManagement.issueStock({
+                  consumableId: transaction.consumableId,
+                  quantity: transaction.quantity,
+                  issuedTo: transaction.issuedTo!,
+                  department: transaction.department,
+                  reason: transaction.reason,
+                  reference: transaction.reference,
+                  notes: transaction.notes,
+                });
+                toast({
+                  title: "Consumable Issued",
+                  description: `${transaction.consumableName} issued to ${transaction.issuedTo}`,
+                });
+              } catch (error) {
+                console.error("Error issuing consumable:", error);
+                toast({
+                  title: "Error",
+                  description: "Failed to issue consumable",
+                  variant: "destructive",
+                });
+              }
+            }}
+            onUpdateConsumable={async (transaction) => {
+              try {
+                await consumablesManagement.receiveStock({
+                  consumableId: transaction.consumableId,
+                  quantity: transaction.quantity,
+                  unitCost: transaction.unitCost,
+                  reference: transaction.reference,
+                  notes: transaction.notes,
+                });
+                toast({
+                  title: "Stock Updated",
+                  description: `${transaction.consumableName} stock updated`,
+                });
+              } catch (error) {
+                console.error("Error updating consumable:", error);
+                toast({
+                  title: "Error",
+                  description: "Failed to update consumable stock",
+                  variant: "destructive",
+                });
+              }
+            }}
+          />
+        </ConsumablesDataInitializer>
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute>
@@ -777,17 +783,6 @@ function AppContent() {
                 <ArchiveRestore className="w-4 h-4 mr-2" />
                 Retrieved
               </button>
-              <button
-                onClick={() => setCurrentView("incoming-stock")}
-                className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 cursor-pointer ${
-                  currentView === "incoming-stock"
-                    ? "border-bua-red text-bua-red"
-                    : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
-                }`}
-              >
-                <Package className="w-4 h-4 mr-2" />
-                Incoming Stock
-              </button>
               {userRole === "auditor" && (
                 <button
                   onClick={() => setCurrentView("audit")}
@@ -810,16 +805,15 @@ function AppContent() {
           {currentView === "dashboard" && (
             <EnhancedDashboard
               assets={assets}
-              receivables={receivables}
               licenses={licenses}
+              incomingStock={incomingStock}
               onAssetAdded={() => {}}
               onLicenseAdded={() => {}}
-              onReceivableAdded={() => {}}
             />
           )}
           {currentView !== "dashboard" &&
             currentView !== "audit" &&
-            currentView !== "incoming-stock" && (
+            currentView !== "receivables" && (
               <SearchAndFilter
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
@@ -846,13 +840,12 @@ function AppContent() {
           )}
           {currentView === "receivables" && (
             <ReceivablesTable
-              receivables={filteredReceivables}
+              incomingStock={incomingStock}
               userRole={userRole}
-              onEdit={handleEditReceivable}
-              onDelete={handleDeleteReceivable}
-              onAssign={handleAssignReceivable}
-              onImport={handleImport}
-              onAdd={handleAddReceivable}
+              onAssign={(stock) => {
+                setAllocatingStock(stock);
+                setIsAllocationModalOpen(true);
+              }}
             />
           )}
           {currentView === "licenses" && (
@@ -878,14 +871,6 @@ function AppContent() {
               isRetrievedView
             />
           )}
-          {currentView === "incoming-stock" && (
-            <IncomingStockPage
-              incomingStock={incomingStock}
-              onAddStock={handleAddIncomingStock}
-              onAllocateStock={handleAllocateIncomingStock}
-              onImportStock={handleImportIncomingStock}
-            />
-          )}
           {currentView === "audit" && <AuditTrail />}
         </main>
 
@@ -900,18 +885,14 @@ function AppContent() {
           isRedeploying={isRedeploying}
         />
 
-        <ReceivableModal
-          isOpen={isReceivableModalOpen}
-          onClose={() => setIsReceivableModalOpen(false)}
-          onSave={handleSaveReceivable}
-          receivable={editingReceivable}
-        />
-
-        <ReceivableAssignmentModal
-          isOpen={isReceivableAssignmentModalOpen}
-          onClose={() => setIsReceivableAssignmentModalOpen(false)}
-          onSave={handleSaveReceivableAssignment}
-          receivable={assigningReceivable}
+        <AllocationModal
+          isOpen={isAllocationModalOpen}
+          onClose={() => {
+            setIsAllocationModalOpen(false);
+            setAllocatingStock(null);
+          }}
+          onSave={handleAllocateIncomingStock}
+          stock={allocatingStock}
         />
 
         <LicenseModal
