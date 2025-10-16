@@ -11,7 +11,7 @@ import {
   issueConsumableStock,
   getLowStockConsumables,
 } from "../services/consumablesService";
-import type { Consumable, ConsumableTransaction } from "../types/inventory";
+import type { Consumable } from "../types/inventory";
 
 // Query keys
 export const CONSUMABLES_QUERY_KEY = "consumables";
@@ -149,7 +149,6 @@ export const useReceiveConsumableStock = () => {
       consumableId,
       quantity,
       unitCost,
-      supplier,
       reference,
       notes,
     }: {
@@ -164,7 +163,6 @@ export const useReceiveConsumableStock = () => {
         consumableId,
         quantity,
         unitCost,
-        supplier,
         reference,
         notes
       ),

@@ -92,7 +92,7 @@ const CreateSheetModal: React.FC<CreateSheetModalProps> = ({
             <div className="max-h-32 overflow-y-auto border rounded-md p-2 bg-gray-50">
               {selectedItems.map((item) => (
                 <div key={item.id} className="text-sm py-1">
-                  • {item.itemName} - {item.brand} ({item.quantity} units)
+                  • {item.itemName} - {item.brand}
                 </div>
               ))}
             </div>
