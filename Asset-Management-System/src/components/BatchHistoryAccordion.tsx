@@ -9,7 +9,6 @@ import {
   Tag,
 } from "lucide-react";
 import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
 
 interface BatchHistoryAccordionProps {
   incomingStock: IncomingStock[];

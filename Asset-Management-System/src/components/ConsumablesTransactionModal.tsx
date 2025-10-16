@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { ArrowUp, ArrowDown, X } from "lucide-react";
+import { ArrowUp, ArrowDown } from "lucide-react";
 import type {
   Consumable,
   ConsumableTransaction,
@@ -20,7 +20,9 @@ import type {
 interface ConsumablesTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: any) => void;
+  onSave: (
+    data: Omit<Consumable, "id"> | Omit<ConsumableTransaction, "id">
+  ) => void;
   transactionType: "receive" | "issue";
   consumable?: Consumable | null;
   existingConsumables?: Consumable[];
@@ -28,14 +30,7 @@ interface ConsumablesTransactionModalProps {
 
 const ConsumablesTransactionModal: React.FC<
   ConsumablesTransactionModalProps
-> = ({
-  isOpen,
-  onClose,
-  onSave,
-  transactionType,
-  consumable,
-  existingConsumables = [],
-}) => {
+> = ({ isOpen, onClose, onSave, transactionType, consumable }) => {
   const [formData, setFormData] = useState({
     itemName: "",
     category: "cables" as ConsumableCategory,

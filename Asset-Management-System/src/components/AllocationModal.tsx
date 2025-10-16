@@ -185,6 +185,7 @@ const AllocationModal: React.FC<AllocationModalProps> = ({
         status: "in-use",
         location: formData.location,
         description: formData.description || "",
+        notes: stock.notes || "",
         // Batch tracking (preserved from incoming stock)
         batchTag: stock.batchTag,
         batchName: stock.batchName,
@@ -192,12 +193,18 @@ const AllocationModal: React.FC<AllocationModalProps> = ({
         batchCreatedDate: stock.batchCreatedDate,
         batchCreatedBy: stock.batchCreatedBy,
         peripheralType:
-          stock.assetType === "peripheral" ? (stock.assetSubtype as any) : "",
+          stock.assetType === "peripheral"
+            ? (stock.assetSubtype as "printer" | "scanner" | "monitor")
+            : undefined,
         networkType:
-          stock.assetType === "network" ? (stock.assetSubtype as any) : "",
+          stock.assetType === "network"
+            ? (stock.assetSubtype as "router" | "switch" | "access_point")
+            : undefined,
         itemName: stock.itemName || "",
         computeType:
-          stock.assetType === "compute" ? (stock.assetSubtype as any) : "",
+          stock.assetType === "compute"
+            ? (stock.assetSubtype as "laptop" | "desktop" | "mobile" | "server")
+            : undefined,
         computerName: formData.computerName || "",
         imeiNumber: stock.imeiNumber || "",
         // Monitor specific fields

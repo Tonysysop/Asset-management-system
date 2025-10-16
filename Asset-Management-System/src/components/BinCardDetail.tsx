@@ -9,7 +9,6 @@ import {
   Printer,
   AlertCircle,
   CheckCircle,
-  Clock,
 } from "lucide-react";
 import type {
   IncomingStock,
@@ -94,11 +93,6 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
     });
   } else {
     // Handle consumables transactions
-    const filteredConsumables =
-      selectedType === "all"
-        ? consumables
-        : consumables.filter((item) => item.category === selectedType);
-
     const filteredTransactions =
       selectedType === "all"
         ? consumableTransactions

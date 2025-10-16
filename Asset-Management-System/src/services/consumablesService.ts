@@ -41,7 +41,7 @@ export const addConsumable = async (
   try {
     // Filter out undefined values
     const cleanConsumable = Object.fromEntries(
-      Object.entries(consumable).filter(([_, value]) => value !== undefined)
+      Object.entries(consumable).filter(([ value]) => value !== undefined)
     );
 
     const docRef = await addDoc(collection(db, CONSUMABLES_COLLECTION), {
@@ -63,7 +63,7 @@ export const updateConsumable = async (
   try {
     // Filter out undefined values
     const cleanConsumable = Object.fromEntries(
-      Object.entries(consumable).filter(([_, value]) => value !== undefined)
+      Object.entries(consumable).filter(([, value]) => value !== undefined)
     );
 
     const docRef = doc(db, CONSUMABLES_COLLECTION, id);
@@ -151,7 +151,7 @@ export const addConsumableTransaction = async (
   try {
     // Filter out undefined values
     const cleanTransaction = Object.fromEntries(
-      Object.entries(transaction).filter(([_, value]) => value !== undefined)
+      Object.entries(transaction).filter(([ value]) => value !== undefined)
     );
 
     const docRef = await addDoc(
@@ -253,7 +253,7 @@ export const receiveConsumableStock = async (
 
     // Filter out undefined values
     const cleanTransaction = Object.fromEntries(
-      Object.entries(transaction).filter(([_, value]) => value !== undefined)
+      Object.entries(transaction).filter(([ value]) => value !== undefined)
     );
 
     batch.set(transactionRef, {
@@ -325,7 +325,7 @@ export const issueConsumableStock = async (
 
     // Filter out undefined values
     const cleanTransaction = Object.fromEntries(
-      Object.entries(transaction).filter(([_, value]) => value !== undefined)
+      Object.entries(transaction).filter(([ value]) => value !== undefined)
     );
 
     batch.set(transactionRef, {
@@ -364,7 +364,7 @@ export const createConsumableWithStock = async (
 
     // Filter out undefined values from consumable
     const cleanConsumable = Object.fromEntries(
-      Object.entries(consumable).filter(([_, value]) => value !== undefined)
+      Object.entries(consumable).filter(([ value]) => value !== undefined)
     );
 
     batch.set(consumableRef, {
@@ -396,7 +396,7 @@ export const createConsumableWithStock = async (
 
     // Filter out undefined values
     const cleanTransaction = Object.fromEntries(
-      Object.entries(transaction).filter(([_, value]) => value !== undefined)
+      Object.entries(transaction).filter(([ value]) => value !== undefined)
     );
 
     batch.set(transactionRef, {

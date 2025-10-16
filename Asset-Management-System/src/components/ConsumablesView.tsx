@@ -39,8 +39,10 @@ const ConsumablesView: React.FC<ConsumablesViewProps> = ({
     }
   };
 
-  const handleIssueStock = (data: Omit<ConsumableTransaction, "id">) => {
-    onIssueStock(data);
+  const handleIssueStock = (
+    data: Omit<Consumable, "id"> | Omit<ConsumableTransaction, "id">
+  ) => {
+    onIssueStock(data as Omit<ConsumableTransaction, "id">);
   };
 
   const handleExport = () => {

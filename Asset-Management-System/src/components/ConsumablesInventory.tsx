@@ -73,6 +73,24 @@ const ConsumablesInventory: React.FC<ConsumablesInventoryProps> = ({
     setShowIssueModal(true);
   };
 
+  // Handle receive data
+  const handleReceiveData = (
+    data: Omit<Consumable, "id"> | Omit<ConsumableTransaction, "id">
+  ) => {
+    if ("itemName" in data) {
+      onReceiveStock(data);
+    } else {
+      onIssueStock(data);
+    }
+  };
+
+  // Handle issue data
+  const handleIssueData = (
+    data: Omit<Consumable, "id"> | Omit<ConsumableTransaction, "id">
+  ) => {
+    onIssueStock(data as Omit<ConsumableTransaction, "id">);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -327,7 +345,7 @@ const ConsumablesInventory: React.FC<ConsumablesInventoryProps> = ({
           setShowReceiveModal(false);
           setSelectedConsumable(null);
         }}
-        onSave={onReceiveStock}
+        onSave={handleReceiveData}
         transactionType="receive"
         consumable={selectedConsumable}
         existingConsumables={consumables}
@@ -339,7 +357,7 @@ const ConsumablesInventory: React.FC<ConsumablesInventoryProps> = ({
           setShowIssueModal(false);
           setSelectedConsumable(null);
         }}
-        onSave={onIssueStock}
+        onSave={handleIssueData}
         transactionType="issue"
         consumable={selectedConsumable}
         existingConsumables={consumables}
