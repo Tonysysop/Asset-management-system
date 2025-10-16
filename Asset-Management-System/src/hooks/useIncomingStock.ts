@@ -6,16 +6,20 @@ import {
   deleteIncomingStock,
   getIncomingStockByStatus,
 } from "../services/incomingStockService";
+import { receivableKeys } from "./useReceivables";
+import { assetKeys } from "./useAssets";
 import type { IncomingStock } from "../types/inventory";
 
 // Query keys
 export const incomingStockKeys = {
   all: ["incomingStock"] as const,
   lists: () => [...incomingStockKeys.all, "list"] as const,
-  list: (filters: string) => [...incomingStockKeys.lists(), { filters }] as const,
+  list: (filters: string) =>
+    [...incomingStockKeys.lists(), { filters }] as const,
   details: () => [...incomingStockKeys.all, "detail"] as const,
   detail: (id: string) => [...incomingStockKeys.details(), id] as const,
-  byStatus: (status: string) => [...incomingStockKeys.all, "status", status] as const,
+  byStatus: (status: string) =>
+    [...incomingStockKeys.all, "status", status] as const,
 };
 
 // Hooks for fetching data
@@ -23,7 +27,8 @@ export const useIncomingStock = () => {
   return useQuery({
     queryKey: incomingStockKeys.lists(),
     queryFn: getIncomingStock,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000, // 30 seconds instead of 2 minutes
+    refetchInterval: 60 * 1000, // Refetch every 60 seconds
   });
 };
 
@@ -31,45 +36,62 @@ export const useIncomingStockByStatus = (status: "incoming" | "in-use") => {
   return useQuery({
     queryKey: incomingStockKeys.byStatus(status),
     queryFn: () => getIncomingStockByStatus(status),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000, // 30 seconds instead of 2 minutes
+    refetchInterval: 60 * 1000, // Refetch every 60 seconds
   });
 };
 
 // Mutation hooks
 export const useAddIncomingStock = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: addIncomingStock,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: incomingStockKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: incomingStockKeys.byStatus("incoming") });
+      // Invalidate all incoming stock related queries
+      queryClient.invalidateQueries({ queryKey: incomingStockKeys.all });
+
+      // Invalidate receivables queries since new incoming stock affects receivables
+      queryClient.invalidateQueries({ queryKey: receivableKeys.all });
     },
   });
 };
 
 export const useUpdateIncomingStock = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ id, stock }: { id: string; stock: Partial<IncomingStock> }) =>
-      updateIncomingStock(id, stock),
+    mutationFn: ({
+      id,
+      stock,
+    }: {
+      id: string;
+      stock: Partial<IncomingStock>;
+    }) => updateIncomingStock(id, stock),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: incomingStockKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: incomingStockKeys.byStatus("incoming") });
-      queryClient.invalidateQueries({ queryKey: incomingStockKeys.byStatus("in-use") });
+      // Invalidate all incoming stock related queries
+      queryClient.invalidateQueries({ queryKey: incomingStockKeys.all });
+
+      // Invalidate receivables queries since status changes affect receivables
+      queryClient.invalidateQueries({ queryKey: receivableKeys.all });
+
+      // Invalidate assets queries since allocation creates new assets
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
     },
   });
 };
 
 export const useDeleteIncomingStock = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: deleteIncomingStock,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: incomingStockKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: incomingStockKeys.byStatus("incoming") });
+      // Invalidate all incoming stock related queries
+      queryClient.invalidateQueries({ queryKey: incomingStockKeys.all });
+
+      // Invalidate receivables queries since receivables depend on incoming stock
+      queryClient.invalidateQueries({ queryKey: receivableKeys.all });
     },
   });
 };

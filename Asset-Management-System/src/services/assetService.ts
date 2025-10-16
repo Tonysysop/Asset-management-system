@@ -20,7 +20,28 @@ const retrievedCollection = collection(db, "retrieved_assets");
 export const getAssets = async (): Promise<Asset[]> => {
   try {
     const snapshot = await getDocs(assetsCollection);
-    return snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset));
+    const assets = snapshot.docs.map(
+      (doc) => ({ ...doc.data(), id: doc.id } as Asset)
+    );
+
+    // Sort by deployed date (newest first), then by asset tag as secondary sort
+    return assets.sort((a, b) => {
+      // If both have deployed dates, sort by deployed date (newest first)
+      if (a.deployedDate && b.deployedDate) {
+        const dateA = new Date(a.deployedDate).getTime();
+        const dateB = new Date(b.deployedDate).getTime();
+        if (dateA !== dateB) {
+          return dateB - dateA; // Newest first
+        }
+      }
+
+      // If one has deployed date and other doesn't, prioritize the one with date
+      if (a.deployedDate && !b.deployedDate) return -1;
+      if (!a.deployedDate && b.deployedDate) return 1;
+
+      // If neither has deployed date or they're equal, sort by asset tag
+      return a.assetTag.localeCompare(b.assetTag);
+    });
   } catch (error) {
     console.error("Error fetching assets:", error);
     throw new Error(
@@ -161,7 +182,7 @@ export const addAssets = async (
     const batch = writeBatch(db);
     const batchAssets = validAssets.slice(i, i + batchSize);
 
-    const actionPromises: Promise<any>[] = [];
+    const actionPromises: Promise<unknown>[] = [];
 
     batchAssets.forEach((asset) => {
       const docRef = doc(assetsCollection);

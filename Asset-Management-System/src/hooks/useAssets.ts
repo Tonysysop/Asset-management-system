@@ -74,8 +74,8 @@ export const useAddAsset = () => {
       // Optimistically update to the new value
       const optimisticAsset = { ...asset, id: `temp-${Date.now()}` };
       queryClient.setQueryData(assetKeys.lists(), (old: Asset[] = []) => [
-        ...old,
         optimisticAsset,
+        ...old,
       ]);
 
       // Return a context object with the snapshotted value

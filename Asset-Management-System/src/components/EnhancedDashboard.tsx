@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import type { Asset, Receivable, License } from "../types/inventory";
+import type { Asset, License, IncomingStock } from "../types/inventory";
 import { isValidDate, parseDateString } from "../utils/dateUtils";
 import {
   Monitor,
@@ -23,20 +23,18 @@ import {
 
 interface EnhancedDashboardProps {
   assets: Asset[];
-  receivables: Receivable[];
   licenses: License[];
+  incomingStock: IncomingStock[];
   onAssetAdded?: () => void;
   onLicenseAdded?: () => void;
-  onReceivableAdded?: () => void;
 }
 
 const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
   assets,
-  receivables,
   licenses,
+  incomingStock,
   // onAssetAdded,
   // onLicenseAdded,
-  // onReceivableAdded
 }) => {
   // const { currentUser } = useAuth();
 
@@ -101,20 +99,17 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
     });
   }, [assets]);
 
-  // Memoized receivables calculations
+  // Memoized receivables calculations (using incomingStock as receivables)
   const receivableStatusCounts = useMemo(() => {
-    return receivables.reduce((acc, receivable) => {
-      acc[receivable.status] = (acc[receivable.status] || 0) + 1;
+    return incomingStock.reduce((acc, stock) => {
+      acc[stock.status] = (acc[stock.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-  }, [receivables]);
+  }, [incomingStock]);
 
   const totalReceivableQuantity = useMemo(() => {
-    return receivables.reduce(
-      (sum, receivable) => sum + receivable.quantity,
-      0
-    );
-  }, [receivables]);
+    return incomingStock.length;
+  }, [incomingStock]);
 
   // Memoized license calculations
   const expiredLicenses = useMemo(() => {
@@ -165,10 +160,10 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">
-                Pending Receivables
+                Pending Allocation
               </p>
               <p className="text-3xl font-bold text-amber-600">
-                {receivableStatusCounts["pending"] || 0}
+                {receivableStatusCounts["incoming"] || 0}
               </p>
             </div>
             <div className="p-3 bg-amber-100 rounded-full">
@@ -202,7 +197,8 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
               <p className="text-3xl font-bold text-red-600">
                 {warningAssets.length +
                   expiredLicenses.length +
-                  expiringSoonLicenses.length}
+                  expiringSoonLicenses.length +
+                  (receivableStatusCounts["incoming"] || 0)}
               </p>
             </div>
             <div className="p-3 bg-red-100 rounded-full">
@@ -246,33 +242,22 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
               <div className="flex items-center space-x-3">
                 <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
                 <span className="text-sm font-medium text-gray-900">
-                  Pending
+                  Pending Allocation
                 </span>
               </div>
               <span className="text-sm font-bold text-gray-900">
-                {receivableStatusCounts["pending"] || 0}
+                {receivableStatusCounts["incoming"] || 0}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <span className="text-sm font-medium text-gray-900">
-                  Received
+                  Allocated
                 </span>
               </div>
               <span className="text-sm font-bold text-gray-900">
-                {receivableStatusCounts["received"] || 0}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span className="text-sm font-medium text-gray-900">
-                  Deployed
-                </span>
-              </div>
-              <span className="text-sm font-bold text-gray-900">
-                {receivableStatusCounts["deployed"] || 0}
+                {receivableStatusCounts["in-use"] || 0}
               </span>
             </div>
             <div className="pt-2 border-t">
@@ -345,7 +330,8 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
       {/* Alerts Section */}
       {(warningAssets.length > 0 ||
         expiredLicenses.length > 0 ||
-        expiringSoonLicenses.length > 0) && (
+        expiringSoonLicenses.length > 0 ||
+        (receivableStatusCounts["incoming"] || 0) > 0) && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
             <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
@@ -433,6 +419,46 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
                       ...and{" "}
                       {expiredLicenses.length + expiringSoonLicenses.length - 3}{" "}
                       more
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Receivables Alerts */}
+            {(receivableStatusCounts["incoming"] || 0) > 0 && (
+              <div>
+                <h4 className="text-md font-medium text-amber-600 mb-2">
+                  Items Pending Allocation
+                </h4>
+                <div className="space-y-2">
+                  {incomingStock
+                    .filter((stock) => stock.status === "incoming")
+                    .slice(0, 3)
+                    .map((stock) => (
+                      <div
+                        key={stock.id}
+                        className="flex items-center justify-between p-3 bg-amber-50 rounded-lg"
+                      >
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {stock.itemName} - {stock.brand} {stock.model}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Serial: {stock.serialNumber}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-amber-600">
+                            Status: {stock.status.toUpperCase()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  {(receivableStatusCounts["incoming"] || 0) > 3 && (
+                    <p className="text-sm text-gray-500">
+                      ...and {(receivableStatusCounts["incoming"] || 0) - 3}{" "}
+                      more items pending allocation
                     </p>
                   )}
                 </div>

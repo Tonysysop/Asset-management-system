@@ -28,16 +28,29 @@ const IncomingStockImportModal: React.FC<IncomingStockImportModalProps> = ({
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showBatchForm, setShowBatchForm] = useState(false);
+  const [batchDetails, setBatchDetails] = useState({
+    batchTag: "",
+    batchName: "",
+    batchDescription: "",
+  });
 
   const expectedHeaders = useMemo(
-    () => ["Serial Number", "Asset Type", "Asset Subtype", "Brand", "Model"],
+    () => [
+      "Serial Number",
+      "Asset Type",
+      "Asset Subtype",
+      "Brand",
+      "Model",
+      "Vendor",
+    ],
     []
   );
 
-  const sampleData = `Serial Number,Asset Type,Asset Subtype,Brand,Model
-SN001,compute,laptop,Dell,Latitude 7420
-SN002,peripheral,monitor,Samsung,24" FHD Monitor
-SN003,network,router,Cisco,ISR 4331`;
+  const sampleData = `Serial Number,Asset Type,Asset Subtype,Brand,Model,Vendor
+SN001,compute,laptop,Dell,Latitude 7420,Dell Inc.
+SN002,peripheral,monitor,Samsung,24" FHD Monitor,Samsung Electronics
+SN003,network,router,Cisco,ISR 4331,Cisco Systems`;
 
   const handleFileParse = useCallback(
     async (file: File) => {
@@ -89,6 +102,7 @@ SN003,network,router,Cisco,ISR 4331`;
                   row["Asset Subtype"]?.toString().trim().toLowerCase() || "",
                 brand: row["Brand"]?.toString().trim() || "",
                 model: row["Model"]?.toString().trim() || "",
+                vendor: row["Vendor"]?.toString().trim() || "",
               };
 
               // Validate required fields
@@ -97,7 +111,8 @@ SN003,network,router,Cisco,ISR 4331`;
                 !stock.assetType ||
                 !stock.assetSubtype ||
                 !stock.brand ||
-                !stock.model
+                !stock.model ||
+                !stock.vendor
               ) {
                 throw new Error(`Row ${index + 2}: Missing required fields`);
               }
@@ -115,6 +130,7 @@ SN003,network,router,Cisco,ISR 4331`;
             });
 
             setTransformedData(transformed);
+            setShowBatchForm(true);
             setIsLoading(false);
           },
           error: (error) => {
@@ -166,18 +182,33 @@ SN003,network,router,Cisco,ISR 4331`;
     }
   };
 
-  const handleImport = () => {
-    if (transformedData) {
-      onSave(transformedData);
-      handleClose();
-    }
-  };
-
   const handleClose = () => {
     setTransformedData(null);
     setError(null);
     setIsLoading(false);
+    setShowBatchForm(false);
+    setBatchDetails({
+      batchTag: "",
+      batchName: "",
+      batchDescription: "",
+    });
     onClose();
+  };
+
+  const handleImportWithBatch = () => {
+    if (!transformedData) return;
+
+    const finalData = transformedData.map((item) => ({
+      ...item,
+      batchTag: batchDetails.batchTag || "",
+      batchName: batchDetails.batchName || "",
+      batchDescription: batchDetails.batchDescription || "",
+      batchCreatedDate: new Date().toISOString(),
+      batchCreatedBy: "store@buagroup.com",
+    }));
+
+    onSave(finalData);
+    handleClose();
   };
 
   const downloadSample = () => {
@@ -337,15 +368,86 @@ SN003,network,router,Cisco,ISR 4331`;
           )}
         </div>
 
+        {/* Batch Details Form */}
+        {showBatchForm && transformedData && !error && (
+          <div className="space-y-4 pt-4 border-t">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-semibold text-blue-900 mb-2">
+                Batch Information (Optional)
+              </h4>
+              <p className="text-sm text-blue-800">
+                You can optionally add batch information that will be applied to
+                all {transformedData.length} items.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Batch Tag
+                </label>
+                <input
+                  type="text"
+                  value={batchDetails.batchTag}
+                  onChange={(e) =>
+                    setBatchDetails((prev) => ({
+                      ...prev,
+                      batchTag: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g., BATCH-2024-001"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bua-red focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Batch Name
+                </label>
+                <input
+                  type="text"
+                  value={batchDetails.batchName}
+                  onChange={(e) =>
+                    setBatchDetails((prev) => ({
+                      ...prev,
+                      batchName: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g., Q1 2024 Laptop Delivery"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bua-red focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Batch Description
+              </label>
+              <textarea
+                value={batchDetails.batchDescription}
+                onChange={(e) =>
+                  setBatchDetails((prev) => ({
+                    ...prev,
+                    batchDescription: e.target.value,
+                  }))
+                }
+                placeholder="e.g., New laptops for Q1 deployment"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bua-red focus:border-transparent"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="flex justify-end space-x-2 pt-4 border-t">
           <Button variant="outline" onClick={handleClose}>
             <X className="w-4 h-4 mr-2" />
             Cancel
           </Button>
-          {transformedData && !error && (
+          {showBatchForm && transformedData && !error && (
             <Button
-              onClick={handleImport}
+              onClick={handleImportWithBatch}
               className="bg-bua-red hover:bg-bua-red/90"
             >
               <Upload className="w-4 h-4 mr-2" />
