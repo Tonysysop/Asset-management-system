@@ -112,7 +112,6 @@ export const useCreateConsumableWithStock = () => {
     mutationFn: ({
       consumable,
       initialQuantity,
-      supplier,
       reference,
       notes,
     }: {
@@ -122,13 +121,7 @@ export const useCreateConsumableWithStock = () => {
       reference?: string;
       notes?: string;
     }) =>
-      createConsumableWithStock(
-        consumable,
-        initialQuantity,
-        supplier,
-        reference,
-        notes
-      ),
+      createConsumableWithStock(consumable, initialQuantity, reference, notes),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [CONSUMABLES_QUERY_KEY] });
       queryClient.invalidateQueries({

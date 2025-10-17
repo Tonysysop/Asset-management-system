@@ -351,7 +351,6 @@ export const issueConsumableStock = async (
 export const createConsumableWithStock = async (
   consumable: Omit<Consumable, "id">,
   initialQuantity: number,
-  supplier?: string,
   reference?: string,
   notes?: string
 ): Promise<string> => {
