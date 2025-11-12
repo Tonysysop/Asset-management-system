@@ -14,7 +14,7 @@ import {
 import { useAddAssets } from "../hooks/useAssets";
 import ImportModal from "./ImportModal";
 import { useToast } from "../hooks/useToast";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import ConfirmationDialog from "./ConfirmationDialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead } from "./ui/table";
 

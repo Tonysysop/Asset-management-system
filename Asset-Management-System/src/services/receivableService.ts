@@ -69,7 +69,7 @@ export const updateReceivable = async (
   const updatedReceivableDoc = await getDoc(receivableDocRef);
   const newReceivableData = updatedReceivableDoc.data() as Receivable;
 
-  const formatValue = (value: any): string => {
+  const formatValue = (value: unknown): string => {
     if (value === null || value === undefined) return "null";
     if (typeof value === "object") {
       if (Array.isArray(value)) {

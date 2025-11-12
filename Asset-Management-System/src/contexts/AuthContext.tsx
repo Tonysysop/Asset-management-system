@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -7,25 +7,7 @@ import {
 import type { User, AuthError } from "firebase/auth";
 import { auth } from "../Firebase";
 import type { UserRole } from "../types/inventory";
-
-interface AuthContextType {
-  currentUser: User | null;
-  userRole: UserRole | null;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-  loading: boolean;
-  error: string | null;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-}
+import { AuthContext } from "./AuthContext";
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -74,7 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return unsubscribe;
   }, []);
 
-  const value: AuthContextType = {
+  const value = {
     currentUser,
     userRole,
     login,

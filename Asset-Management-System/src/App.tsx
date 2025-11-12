@@ -20,7 +20,7 @@ import AllocationModal from "./components/AllocationModal";
 import LicenseModal from "./components/LicenseModal";
 import LicenseAssignmentModal from "./components/LicenseAssignmentModal";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { useAuth } from "./contexts/AuthContext";
+import { useAuth } from "./hooks/useAuth";
 import {
   BarChart3,
   Table,
@@ -29,6 +29,7 @@ import {
   LogOut,
   History,
   ArchiveRestore,
+  Settings,
 } from "lucide-react";
 import { useToast } from "./hooks/useToast";
 import { Toaster } from "./components/ui/toaster";
@@ -36,6 +37,8 @@ import AuditTrail from "./components/AuditTrail";
 import ConfirmationDialog from "./components/ConfirmationDialog";
 import RetrieveReasonDialog from "./components/RetrieveReasonDialog";
 import ConnectionStatus from "./components/ConnectionStatus";
+import EmailConfiguration from "./components/EmailConfiguration";
+import { useEmailNotifications } from "./hooks/useEmailNotifications";
 import {
   useAssets,
   useRetrievedAssets,
@@ -87,6 +90,8 @@ function AppContent() {
   const deleteIncomingStockMutation = useDeleteIncomingStock();
   const [userRole, setUserRole] = useState<UserRole>("admin");
   const { toast } = useToast();
+  const { sendAssetAllocationNotification, sendConsumableIssueNotification } =
+    useEmailNotifications();
 
   // Sync userRole with URL path (/ for admin, /audit for auditor)
   useEffect(() => {
@@ -167,6 +172,7 @@ function AppContent() {
     | "licenses"
     | "retrieved"
     | "audit"
+    | "settings"
   >("dashboard");
 
   // Modal states
@@ -473,6 +479,37 @@ function AppContent() {
       // Close the modal after successful allocation
       setIsAllocationModalOpen(false);
       setAllocatingStock(null);
+
+      // Send allocation email notification (non-blocking)
+      try {
+        type EmailConfigLite = {
+          enabled?: boolean;
+          assetAllocations?: boolean;
+        };
+        const saved = localStorage.getItem("emailConfig");
+        const cfg: EmailConfigLite | null = saved ? JSON.parse(saved) : null;
+        const enabled = cfg?.enabled && cfg?.assetAllocations;
+        const recipient = assetData.emailAddress || "";
+        if (enabled && recipient) {
+          await sendAssetAllocationNotification(
+            {
+              assetTag: assetData.assetTag,
+              itemName:
+                assetData.itemName ||
+                assetData.model ||
+                assetData.brand ||
+                "Asset",
+              serialNumber: assetData.serialNumber,
+              assignedUser: assetData.assignedUser || recipient,
+              department: assetData.department || "",
+              allocatedBy: currentUser?.email || "Unknown User",
+            },
+            recipient
+          );
+        }
+      } catch (e) {
+        console.error("Allocation email failed:", e);
+      }
     } catch {
       toast({
         title: "Allocation Error",
@@ -650,6 +687,36 @@ function AppContent() {
                   title: "Consumable Issued",
                   description: `${transaction.consumableName} issued to ${transaction.issuedTo}`,
                 });
+
+                // Send issue notification if enabled (non-blocking)
+                try {
+                  type EmailConfigLite = {
+                    enabled?: boolean;
+                    consumableIssues?: boolean;
+                  };
+                  const saved = localStorage.getItem("emailConfig");
+                  const cfg: EmailConfigLite | null = saved
+                    ? JSON.parse(saved)
+                    : null;
+                  const enabled = cfg?.enabled && cfg?.consumableIssues;
+                  const recipient =
+                    transaction.emailAddress || transaction.issuedTo;
+                  if (enabled && recipient) {
+                    await sendConsumableIssueNotification(
+                      {
+                        itemName: transaction.consumableName,
+                        quantity: transaction.quantity,
+                        issuedTo: recipient,
+                        department: transaction.department || "",
+                        issuedBy: currentUser?.email || "Unknown User",
+                        reason: transaction.reason,
+                      },
+                      recipient
+                    );
+                  }
+                } catch (e) {
+                  console.error("Consumable issue email failed:", e);
+                }
               } catch (error) {
                 console.error("Error issuing consumable:", error);
                 toast({
@@ -796,6 +863,19 @@ function AppContent() {
                   Audit Trail
                 </button>
               )}
+              {userRole === "admin" && (
+                <button
+                  onClick={() => setCurrentView("settings")}
+                  className={`flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors duration-150 cursor-pointer ${
+                    currentView === "settings"
+                      ? "border-bua-red text-bua-red"
+                      : "border-transparent text-gray-500 hover:text-bua-red hover:border-bua-light-red"
+                  }`}
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </button>
+              )}
             </div>
           </div>
         </nav>
@@ -813,7 +893,8 @@ function AppContent() {
           )}
           {currentView !== "dashboard" &&
             currentView !== "audit" &&
-            currentView !== "receivables" && (
+            currentView !== "receivables" &&
+            currentView !== "settings" && (
               <SearchAndFilter
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
@@ -872,6 +953,7 @@ function AppContent() {
             />
           )}
           {currentView === "audit" && <AuditTrail />}
+          {currentView === "settings" && <EmailConfiguration />}
         </main>
 
         {/* Modals */}

@@ -17,6 +17,24 @@ import { addAction } from "./actionService";
 const assetsCollection = collection(db, "assets");
 const retrievedCollection = collection(db, "retrieved_assets");
 
+// Remove all undefined values recursively to keep Firestore writes valid
+function removeUndefinedDeep<T>(input: T): T {
+  if (Array.isArray(input)) {
+    return input.map((item) => removeUndefinedDeep(item)) as unknown as T;
+  }
+  if (input && typeof input === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(
+      input as Record<string, unknown>
+    )) {
+      if (value === undefined) continue;
+      result[key] = removeUndefinedDeep(value as unknown);
+    }
+    return result as T;
+  }
+  return input;
+}
+
 export const getAssets = async (): Promise<Asset[]> => {
   try {
     const snapshot = await getDocs(assetsCollection);
@@ -133,17 +151,24 @@ export const addAsset = async (assetData: Omit<Asset, "id">, user: string) => {
     if (!snapshot.empty) {
       throw new Error(`Asset with tag ${assetData.assetTag} already exists.`);
     }
-    const docRef = await addDoc(assetsCollection, assetData);
+    // Ensure newly added assets appear at the top: default deployedDate if missing
+    const withDefaults = {
+      ...assetData,
+      deployedDate: assetData.deployedDate || new Date().toISOString(),
+    };
+    // Ensure no undefined values are sent to Firestore
+    const cleanAssetData = removeUndefinedDeep(withDefaults);
+    const docRef = await addDoc(assetsCollection, cleanAssetData);
     await addAction({
       user,
       actionType: "CREATE",
       itemType: "asset",
       itemId: docRef.id,
-      assetTag: assetData.assetTag,
+      assetTag: cleanAssetData.assetTag,
       timestamp: new Date(),
-      details: `Created asset with tag ${assetData.assetTag}`,
+      details: `Created asset with tag ${cleanAssetData.assetTag}`,
     });
-    return { ...assetData, id: docRef.id };
+    return { ...cleanAssetData, id: docRef.id } as Asset;
   } catch (error) {
     console.error("Error adding asset:", error);
     if (error instanceof Error) {
@@ -187,8 +212,8 @@ export const addAssets = async (
     batchAssets.forEach((asset) => {
       const docRef = doc(assetsCollection);
 
-      // Clean up undefined values before saving
-      const cleanAsset = {
+      // Clean up undefined values before saving (and provide safe defaults)
+      const cleanAsset = removeUndefinedDeep({
         ...asset,
         deployedDate: asset.deployedDate || "",
         warrantyExpiry: asset.warrantyExpiry || "",
@@ -203,7 +228,8 @@ export const addAssets = async (
         serialNumber: asset.serialNumber || "",
         status: asset.status || "in-use",
         type: asset.type || "laptop",
-      };
+        networkType: asset.networkType ?? null,
+      });
 
       batch.set(docRef, cleanAsset);
       actionPromises.push(

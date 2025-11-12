@@ -10,8 +10,10 @@ import {
   ArrowRight,
   Plus,
   ArrowDown,
+  Mail,
 } from "lucide-react";
 import type { Consumable, ConsumableTransaction } from "../types/inventory";
+import { useEmailNotifications } from "../hooks/useEmailNotifications";
 
 interface ConsumablesDashboardProps {
   consumables: Consumable[];
@@ -28,6 +30,7 @@ const ConsumablesDashboard: React.FC<ConsumablesDashboardProps> = ({
   onReceiveStock,
   onIssueStock,
 }) => {
+  const { sendLowStockAlert, isSending } = useEmailNotifications();
   // Calculate metrics
   const totalItems = consumables.length;
   const lowStockItems = consumables.filter(
@@ -69,6 +72,39 @@ const ConsumablesDashboard: React.FC<ConsumablesDashboardProps> = ({
   const lowStockItemsList = consumables.filter(
     (item) => item.currentQuantity <= item.reorderPoint
   );
+
+  const handleSendLowStockAlert = async () => {
+    // Get admin emails from configuration
+    const emailConfig = localStorage.getItem("emailConfig");
+    let adminEmails = ["admin@buagroup.com"]; // Default fallback
+
+    if (emailConfig) {
+      try {
+        const config = JSON.parse(emailConfig);
+        if (config.enabled && config.lowStockAlerts && config.adminEmails) {
+          adminEmails = config.adminEmails;
+        }
+      } catch (error) {
+        console.error("Error parsing email config:", error);
+      }
+    }
+
+    if (adminEmails.length === 0) {
+      alert(
+        "No admin email addresses configured. Please configure email settings first."
+      );
+      return;
+    }
+
+    const success = await sendLowStockAlert(lowStockItemsList, adminEmails);
+    if (success) {
+      alert("Low stock alert sent successfully!");
+    } else {
+      alert(
+        "Failed to send low stock alert. Please check your email configuration."
+      );
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -179,13 +215,23 @@ const ConsumablesDashboard: React.FC<ConsumablesDashboardProps> = ({
                   Click below to view and restock these items.
                 </p>
               </div>
-              <Button
-                onClick={onNavigateToInventory}
-                className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2"
-              >
-                <ArrowRight className="w-4 h-4" />
-                View Inventory
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleSendLowStockAlert}
+                  disabled={isSending}
+                  className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Mail className="w-4 h-4" />
+                  {isSending ? "Sending..." : "Send Alert"}
+                </Button>
+                <Button
+                  onClick={onNavigateToInventory}
+                  className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2"
+                >
+                  <ArrowRight className="w-4 h-4" />
+                  View Inventory
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -13,7 +13,7 @@ import {
 import { addLicenses } from "../services/licenseService";
 import ImportModal from "./ImportModal";
 import ViewDetailsModal from "./ViewDetailsModal";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import {
   Pagination,

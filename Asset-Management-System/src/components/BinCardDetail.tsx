@@ -40,6 +40,7 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
   assetType,
 }) => {
   const [selectedType, setSelectedType] = useState(assetType || "all");
+  const [selectedItem, setSelectedItem] = useState("all");
   const [viewMode, setViewMode] = useState<"assets" | "consumables">("assets");
 
   // Filter stock by type if specified
@@ -56,6 +57,11 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
   // Get unique consumable categories
   const consumableCategories = Array.from(
     new Set(consumables.map((item) => item.category))
+  );
+
+  // Get unique consumable items
+  const consumableItems = Array.from(
+    new Set(consumables.map((item) => item.itemName))
   );
 
   // Calculate opening balance
@@ -93,14 +99,23 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
     });
   } else {
     // Handle consumables transactions
-    const filteredTransactions =
-      selectedType === "all"
-        ? consumableTransactions
-        : consumableTransactions.filter(
-            (t) =>
-              consumables.find((c) => c.id === t.consumableId)?.category ===
-              selectedType
-          );
+    let filteredTransactions = consumableTransactions;
+
+    // Filter by category if selected
+    if (selectedType !== "all") {
+      filteredTransactions = filteredTransactions.filter(
+        (t) =>
+          consumables.find((c) => c.id === t.consumableId)?.category ===
+          selectedType
+      );
+    }
+
+    // Filter by specific item if selected
+    if (selectedItem !== "all") {
+      filteredTransactions = filteredTransactions.filter(
+        (t) => t.consumableName === selectedItem
+      );
+    }
 
     // Add consumable transactions
     filteredTransactions.forEach((transaction) => {
@@ -129,9 +144,25 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
     });
   }
 
-  // Sort transactions by date (newest first)
+  // Sort transactions by date (oldest first for proper bin card chronology)
   const sortedTransactions = transactions.sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  // Recalculate running balance after sorting
+  let recalculatedBalance = openingBalance;
+  const transactionsWithCorrectBalance = sortedTransactions.map(
+    (transaction) => {
+      if (transaction.received > 0) {
+        recalculatedBalance += transaction.received;
+      } else if (transaction.issued > 0) {
+        recalculatedBalance -= transaction.issued;
+      }
+      return {
+        ...transaction,
+        balance: recalculatedBalance,
+      };
+    }
   );
 
   // Calculate totals based on view mode
@@ -150,19 +181,30 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
     ).length;
     isLowStock = availableStock < 5;
   } else {
-    const filteredConsumables =
-      selectedType === "all"
-        ? consumables
-        : consumables.filter((item) => item.category === selectedType);
+    let filteredConsumables = consumables;
+    let filteredTransactions = consumableTransactions;
 
-    const filteredTransactions =
-      selectedType === "all"
-        ? consumableTransactions
-        : consumableTransactions.filter(
-            (t) =>
-              consumables.find((c) => c.id === t.consumableId)?.category ===
-              selectedType
-          );
+    // Filter by category if selected
+    if (selectedType !== "all") {
+      filteredConsumables = filteredConsumables.filter(
+        (item) => item.category === selectedType
+      );
+      filteredTransactions = filteredTransactions.filter(
+        (t) =>
+          consumables.find((c) => c.id === t.consumableId)?.category ===
+          selectedType
+      );
+    }
+
+    // Filter by specific item if selected
+    if (selectedItem !== "all") {
+      filteredConsumables = filteredConsumables.filter(
+        (item) => item.itemName === selectedItem
+      );
+      filteredTransactions = filteredTransactions.filter(
+        (t) => t.consumableName === selectedItem
+      );
+    }
 
     totalReceived = filteredTransactions
       .filter((t) => t.transactionType === "receive")
@@ -181,12 +223,33 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
     );
   }
 
-  const closingBalance = openingBalance + totalReceived - totalIssued;
+  // Calculate closing balance from the last transaction's balance
+  const closingBalance =
+    transactionsWithCorrectBalance.length > 0
+      ? transactionsWithCorrectBalance[
+          transactionsWithCorrectBalance.length - 1
+        ].balance
+      : openingBalance;
 
   // Export to CSV
   const handleExport = () => {
+    let reportTitle = "Bin Card Report";
+    if (viewMode === "assets") {
+      reportTitle += ` - ${
+        selectedType === "all" ? "All Assets" : selectedType
+      }`;
+    } else {
+      if (selectedItem !== "all") {
+        reportTitle += ` - ${selectedItem}`;
+      } else if (selectedType !== "all") {
+        reportTitle += ` - ${selectedType}`;
+      } else {
+        reportTitle += " - All Consumables";
+      }
+    }
+
     const csvContent = [
-      ["Bin Card Report", selectedType === "all" ? "All Assets" : selectedType],
+      [reportTitle],
       [],
       ["Opening Balance", openingBalance],
       ["Total Received", totalReceived],
@@ -202,7 +265,7 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
         "Issued To",
         "Issued By",
       ],
-      ...sortedTransactions.map((t) => [
+      ...transactionsWithCorrectBalance.map((t) => [
         t.date,
         t.reference,
         t.received,
@@ -219,10 +282,20 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `bin-card-${selectedType}-${new Date().toISOString().split("T")[0]}.csv`
-    );
+    const fileName =
+      viewMode === "assets"
+        ? `bin-card-${selectedType}-${
+            new Date().toISOString().split("T")[0]
+          }.csv`
+        : selectedItem !== "all"
+        ? `bin-card-${selectedItem.replace(/\s+/g, "-")}-${
+            new Date().toISOString().split("T")[0]
+          }.csv`
+        : `bin-card-${selectedType}-${
+            new Date().toISOString().split("T")[0]
+          }.csv`;
+
+    link.setAttribute("download", fileName);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -276,6 +349,7 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
               onClick={() => {
                 setViewMode("assets");
                 setSelectedType("all");
+                setSelectedItem("all");
               }}
               className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
                 viewMode === "assets"
@@ -289,6 +363,7 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
               onClick={() => {
                 setViewMode("consumables");
                 setSelectedType("all");
+                setSelectedItem("all");
               }}
               className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
                 viewMode === "consumables"
@@ -301,27 +376,50 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Filter by Type:</label>
-          <select
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bua-red"
-          >
-            <option value="all">All Types</option>
-            {viewMode === "assets"
-              ? assetTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </option>
-                ))
-              : consumableCategories.map((category) => (
-                  <option key={category} value={category}>
-                    {category.charAt(0).toUpperCase() +
-                      category.slice(1).replace("_", " ")}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Filter by Type:</label>
+            <select
+              value={selectedType}
+              onChange={(e) => {
+                setSelectedType(e.target.value);
+                setSelectedItem("all"); // Reset item filter when type changes
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bua-red"
+            >
+              <option value="all">All Types</option>
+              {viewMode === "assets"
+                ? assetTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </option>
+                  ))
+                : consumableCategories.map((category) => (
+                    <option key={category} value={category}>
+                      {category.charAt(0).toUpperCase() +
+                        category.slice(1).replace("_", " ")}
+                    </option>
+                  ))}
+            </select>
+          </div>
+
+          {viewMode === "consumables" && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Filter by Item:</label>
+              <select
+                value={selectedItem}
+                onChange={(e) => setSelectedItem(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bua-red"
+              >
+                <option value="all">All Items</option>
+                {consumableItems.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
                   </option>
                 ))}
-          </select>
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -423,7 +521,7 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {sortedTransactions.map((transaction, index) => (
+                {transactionsWithCorrectBalance.map((transaction, index) => (
                   <tr key={index} className="border-b hover:bg-gray-50">
                     <td className="p-2 text-sm">{transaction.date}</td>
                     <td className="p-2 text-sm font-medium">
@@ -446,21 +544,6 @@ const BinCardDetail: React.FC<BinCardDetailProps> = ({
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="bg-gray-50 font-semibold">
-                <tr>
-                  <td colSpan={2} className="p-2">
-                    Total
-                  </td>
-                  <td className="p-2 text-right text-green-600">
-                    +{totalReceived}
-                  </td>
-                  <td className="p-2 text-right text-red-600">
-                    -{totalIssued}
-                  </td>
-                  <td className="p-2 text-right">{closingBalance}</td>
-                  <td className="p-2"></td>
-                </tr>
-              </tfoot>
             </table>
           </div>
         </CardContent>

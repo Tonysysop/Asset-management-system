@@ -30,7 +30,14 @@ interface ConsumablesTransactionModalProps {
 
 const ConsumablesTransactionModal: React.FC<
   ConsumablesTransactionModalProps
-> = ({ isOpen, onClose, onSave, transactionType, consumable }) => {
+> = ({
+  isOpen,
+  onClose,
+  onSave,
+  transactionType,
+  consumable,
+  existingConsumables = [],
+}) => {
   const [formData, setFormData] = useState({
     itemName: "",
     category: "cables" as ConsumableCategory,
@@ -39,6 +46,7 @@ const ConsumablesTransactionModal: React.FC<
     unitCost: "",
     supplier: "",
     issuedTo: "",
+    emailAddress: "",
     department: "",
     reason: "",
     reference: "",
@@ -46,6 +54,7 @@ const ConsumablesTransactionModal: React.FC<
   });
 
   const [isNewItem, setIsNewItem] = useState(true);
+  const [selectedConsumableId, setSelectedConsumableId] = useState("");
 
   useEffect(() => {
     if (consumable && transactionType === "receive") {
@@ -57,6 +66,7 @@ const ConsumablesTransactionModal: React.FC<
         unitCost: consumable.unitCost.toString(),
         supplier: consumable.supplier || "",
         issuedTo: "",
+        emailAddress: "",
         department: "",
         reason: "",
         reference: "",
@@ -72,12 +82,32 @@ const ConsumablesTransactionModal: React.FC<
         unitCost: consumable.unitCost.toString(),
         supplier: "",
         issuedTo: "",
+        emailAddress: "",
         department: "",
         reason: "",
         reference: "",
         notes: "",
       });
       setIsNewItem(false);
+      setSelectedConsumableId(consumable.id);
+    } else if (transactionType === "issue" && !consumable) {
+      // For issue transactions without pre-selected consumable
+      setFormData({
+        itemName: "",
+        category: "cables" as ConsumableCategory,
+        description: "",
+        quantity: "",
+        unitCost: "",
+        supplier: "",
+        issuedTo: "",
+        emailAddress: "",
+        department: "",
+        reason: "",
+        reference: "",
+        notes: "",
+      });
+      setIsNewItem(false);
+      setSelectedConsumableId("");
     } else {
       setFormData({
         itemName: "",
@@ -87,14 +117,32 @@ const ConsumablesTransactionModal: React.FC<
         unitCost: "",
         supplier: "",
         issuedTo: "",
+        emailAddress: "",
         department: "",
         reason: "",
         reference: "",
         notes: "",
       });
       setIsNewItem(true);
+      setSelectedConsumableId("");
     }
   }, [consumable, transactionType, isOpen]);
+
+  const handleConsumableSelect = (consumableId: string) => {
+    const selectedConsumable = existingConsumables.find(
+      (c) => c.id === consumableId
+    );
+    if (selectedConsumable) {
+      setSelectedConsumableId(consumableId);
+      setFormData((prev) => ({
+        ...prev,
+        itemName: selectedConsumable.itemName,
+        category: selectedConsumable.category,
+        description: selectedConsumable.description,
+        unitCost: selectedConsumable.unitCost.toString(),
+      }));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,15 +183,24 @@ const ConsumablesTransactionModal: React.FC<
       }
     } else {
       // Issue transaction
+      const targetConsumable =
+        consumable ||
+        existingConsumables.find((c) => c.id === selectedConsumableId);
+      if (!targetConsumable) {
+        alert("Please select a consumable to issue");
+        return;
+      }
+
       const transaction: Omit<ConsumableTransaction, "id"> = {
-        consumableId: consumable!.id,
-        consumableName: consumable!.itemName,
+        consumableId: targetConsumable.id,
+        consumableName: targetConsumable.itemName,
         transactionType: "issue",
         quantity: parseInt(formData.quantity),
         unitCost: parseFloat(formData.unitCost),
         totalCost: parseInt(formData.quantity) * parseFloat(formData.unitCost),
         transactionDate: new Date().toISOString().split("T")[0],
         issuedTo: formData.issuedTo,
+        emailAddress: formData.emailAddress || undefined,
         issuedBy: "store@buagroup.com", // Current user
         department: formData.department || undefined,
         reason: formData.reason || undefined,
@@ -165,15 +222,22 @@ const ConsumablesTransactionModal: React.FC<
       unitCost: "",
       supplier: "",
       issuedTo: "",
+      emailAddress: "",
       department: "",
       reason: "",
       reference: "",
       notes: "",
     });
+    setSelectedConsumableId("");
     onClose();
   };
 
-  const maxIssueQuantity = consumable ? consumable.currentQuantity : 0;
+  const targetConsumable =
+    consumable ||
+    existingConsumables.find((c) => c.id === selectedConsumableId);
+  const maxIssueQuantity = targetConsumable
+    ? targetConsumable.currentQuantity
+    : 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -200,6 +264,53 @@ const ConsumablesTransactionModal: React.FC<
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Consumable Selection for Issue Transactions */}
+          {transactionType === "issue" && !consumable && (
+            <div className="space-y-2">
+              <Label htmlFor="consumableSelect">
+                Select Consumable to Issue *
+              </Label>
+              <select
+                id="consumableSelect"
+                value={selectedConsumableId}
+                onChange={(e) => handleConsumableSelect(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bua-red"
+                required
+              >
+                <option value="">Choose a consumable...</option>
+                {existingConsumables
+                  .filter((c) => c.currentQuantity > 0)
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.itemName} - Available: {item.currentQuantity} units
+                    </option>
+                  ))}
+              </select>
+              {targetConsumable && (
+                <div className="p-3 bg-blue-50 rounded-md">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">
+                        {targetConsumable.itemName}
+                      </p>
+                      <p className="text-xs text-gray-600 capitalize">
+                        {targetConsumable.category.replace("_", " ")}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-blue-600">
+                        Available: {targetConsumable.currentQuantity} units
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        ₦{targetConsumable.unitCost.toLocaleString()} per unit
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {transactionType === "receive" && isNewItem && (
             <>
               <div className="grid grid-cols-2 gap-4">
@@ -323,16 +434,29 @@ const ConsumablesTransactionModal: React.FC<
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="department">Department</Label>
+                  <Label htmlFor="emailAddress">Email Address</Label>
                   <Input
-                    id="department"
-                    value={formData.department}
+                    id="emailAddress"
+                    type="email"
+                    value={formData.emailAddress}
                     onChange={(e) =>
-                      setFormData({ ...formData, department: e.target.value })
+                      setFormData({ ...formData, emailAddress: e.target.value })
                     }
-                    placeholder="Department"
+                    placeholder="user@company.com"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <Input
+                  id="department"
+                  value={formData.department}
+                  onChange={(e) =>
+                    setFormData({ ...formData, department: e.target.value })
+                  }
+                  placeholder="Department"
+                />
               </div>
 
               <div className="space-y-2">

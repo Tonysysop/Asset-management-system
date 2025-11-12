@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Lock, Mail, AlertCircle } from "lucide-react";
 import buaLogo from "@/assets/bua-logo.jpg";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");

@@ -265,6 +265,7 @@ export interface ConsumableTransaction {
   totalCost: number;
   transactionDate: string;
   issuedTo?: string;
+  emailAddress?: string;
   issuedBy: string;
   department?: string;
   reason?: string;
