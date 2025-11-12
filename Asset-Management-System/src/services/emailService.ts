@@ -1,5 +1,3 @@
-import { Client } from "@microsoft/microsoft-graph-client";
-
 // Email configuration interface
 export interface EmailConfig {
   clientId: string;
@@ -32,10 +30,7 @@ export interface EmailData {
 }
 
 class EmailService {
-  private graphClient: Client | null = null;
   private config: EmailConfig | null = null;
-  private accessToken: string | null = null;
-  private tokenExpiry: number = 0;
 
   constructor() {
     this.loadConfig();
@@ -50,62 +45,6 @@ class EmailService {
       fromEmail: import.meta.env.VITE_FROM_EMAIL || "noreply@buagroup.com",
       fromName: import.meta.env.VITE_FROM_NAME || "BUA Asset Management",
     };
-  }
-
-  private async getAccessToken(): Promise<string> {
-    if (!this.config) {
-      throw new Error("Email configuration not loaded");
-    }
-
-    // Check if token is still valid
-    if (this.accessToken && Date.now() < this.tokenExpiry) {
-      return this.accessToken;
-    }
-
-    try {
-      const response = await fetch(
-        `https://login.microsoftonline.com/${this.config.tenantId}/oauth2/v2.0/token`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            client_id: this.config.clientId,
-            client_secret: this.config.clientSecret,
-            scope: "https://graph.microsoft.com/.default",
-            grant_type: "client_credentials",
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Token request failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      this.accessToken = data.access_token;
-      this.tokenExpiry = Date.now() + data.expires_in * 1000 - 60000; // 1 minute buffer
-
-      return this.accessToken!;
-    } catch (error) {
-      console.error("Error getting access token:", error);
-      throw new Error("Failed to authenticate with Microsoft Graph");
-    }
-  }
-
-  private async initializeGraphClient(): Promise<void> {
-    if (!this.config) {
-      throw new Error("Email configuration not loaded");
-    }
-
-    const token = await this.getAccessToken();
-
-    this.graphClient = Client.init({
-      authProvider: (done) => {
-        done(null, token);
-      },
-    });
   }
 
   async sendEmail(emailData: EmailData): Promise<boolean> {
