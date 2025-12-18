@@ -14,6 +14,7 @@ import {
   importAssetsFromCSV,
   importReceivablesFromCSV,
   importLicensesFromCSV,
+  isRowEmpty,
 } from "../utils/csvImport";
 
 interface ImportModalProps {
@@ -82,8 +83,12 @@ const ImportModal: React.FC<ImportModalProps> = ({
                   setIsLoading(false);
                   return;
                 }
-                setParsedData(results.data);
-                setTransformedData(results.data);
+                // Filter out empty rows
+                const cleanData = (
+                  results.data as Record<string, unknown>[]
+                ).filter((row) => !isRowEmpty(row));
+                setParsedData(cleanData);
+                setTransformedData(cleanData);
                 setError(null);
                 setIsLoading(false);
               },
@@ -248,9 +253,8 @@ const ImportModal: React.FC<ImportModalProps> = ({
               onDragLeave={handleDragLeave}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-lg p-10 text-center transition-colors duration-200 ${
-                isDragging ? "border-blue-500 bg-blue-50" : "border-gray-300"
-              }`}
+              className={`border-2 border-dashed rounded-lg p-10 text-center transition-colors duration-200 ${isDragging ? "border-blue-500 bg-blue-50" : "border-gray-300"
+                }`}
             >
               <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
               <p className="text-lg font-semibold mb-2">

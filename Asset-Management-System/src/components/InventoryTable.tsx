@@ -39,8 +39,8 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   onRetrieve,
   isRetrievedView = false,
 }) => {
-  const [sortField, setSortField] = useState<keyof Asset>("assetTag");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [sortField, setSortField] = useState<keyof Asset>("createdAt");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -205,16 +205,32 @@ SN-019,network,,,other,"Generic","Network Switch","24-Port Managed",2027-07-14,"
         setSortDirection(sortDirection === "asc" ? "desc" : "asc");
       } else {
         setSortField(field);
-        setSortDirection("asc");
+        setSortDirection(field === "deployedDate" || field === "createdAt" ? "desc" : "asc");
       }
     },
     [sortField, sortDirection]
   );
 
+  const getSortableValue = useCallback((asset: Asset, field: keyof Asset) => {
+    const value = asset[field];
+    if (!value) return null;
+
+    if (field === "deployedDate" || field === "warrantyExpiry" || field === "createdAt") {
+      const timestamp = new Date(value as string).getTime();
+      return Number.isNaN(timestamp) ? null : timestamp;
+    }
+
+    if (typeof value === "string") {
+      return value.toLowerCase();
+    }
+
+    return value;
+  }, []);
+
   const sortedAssets = useMemo(() => {
     return [...assets].sort((a, b) => {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
+      const aValue = getSortableValue(a, sortField);
+      const bValue = getSortableValue(b, sortField);
 
       if (aValue == null && bValue == null) return 0;
       if (aValue == null) return sortDirection === "asc" ? 1 : -1;
@@ -224,7 +240,7 @@ SN-019,network,,,other,"Generic","Network Switch","24-Port Managed",2027-07-14,"
       if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
       return 0;
     });
-  }, [assets, sortField, sortDirection]);
+  }, [assets, getSortableValue, sortField, sortDirection]);
 
   // Pagination logic
   const totalPages = Math.ceil(sortedAssets.length / itemsPerPage);

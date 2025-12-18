@@ -42,9 +42,22 @@ export const getAssets = async (): Promise<Asset[]> => {
       (doc) => ({ ...doc.data(), id: doc.id } as Asset)
     );
 
-    // Sort by deployed date (newest first), then by asset tag as secondary sort
+    // Sort by createdAt (newest first), then by asset tag as secondary sort
     return assets.sort((a, b) => {
-      // If both have deployed dates, sort by deployed date (newest first)
+      // If both have createdAt timestamps, sort by createdAt (newest first)
+      if (a.createdAt && b.createdAt) {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        if (dateA !== dateB) {
+          return dateB - dateA; // Newest first
+        }
+      }
+
+      // If one has createdAt and other doesn't, prioritize the one with createdAt
+      if (a.createdAt && !b.createdAt) return -1;
+      if (!a.createdAt && b.createdAt) return 1;
+
+      // Fallback: sort by deployedDate if createdAt is not available
       if (a.deployedDate && b.deployedDate) {
         const dateA = new Date(a.deployedDate).getTime();
         const dateB = new Date(b.deployedDate).getTime();
@@ -53,11 +66,7 @@ export const getAssets = async (): Promise<Asset[]> => {
         }
       }
 
-      // If one has deployed date and other doesn't, prioritize the one with date
-      if (a.deployedDate && !b.deployedDate) return -1;
-      if (!a.deployedDate && b.deployedDate) return 1;
-
-      // If neither has deployed date or they're equal, sort by asset tag
+      // If neither has timestamps or they're equal, sort by asset tag
       return a.assetTag.localeCompare(b.assetTag);
     });
   } catch (error) {
@@ -151,9 +160,10 @@ export const addAsset = async (assetData: Omit<Asset, "id">, user: string) => {
     if (!snapshot.empty) {
       throw new Error(`Asset with tag ${assetData.assetTag} already exists.`);
     }
-    // Ensure newly added assets appear at the top: default deployedDate if missing
+    // Set createdAt timestamp for new assets
     const withDefaults = {
       ...assetData,
+      createdAt: new Date().toISOString(),
       deployedDate: assetData.deployedDate || new Date().toISOString(),
     };
     // Ensure no undefined values are sent to Firestore
@@ -215,6 +225,7 @@ export const addAssets = async (
       // Clean up undefined values before saving (and provide safe defaults)
       const cleanAsset = removeUndefinedDeep({
         ...asset,
+        createdAt: new Date().toISOString(),
         deployedDate: asset.deployedDate || "",
         warrantyExpiry: asset.warrantyExpiry || "",
         assignedUser: asset.assignedUser || "",
@@ -252,8 +263,7 @@ export const addAssets = async (
     } catch (error) {
       console.error(`Error committing batch ${i / batchSize + 1}:`, error);
       throw new Error(
-        `Failed to import assets in batch ${
-          i / batchSize + 1
+        `Failed to import assets in batch ${i / batchSize + 1
         }. Please try again.`
       );
     }

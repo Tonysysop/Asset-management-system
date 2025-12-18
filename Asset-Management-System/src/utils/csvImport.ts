@@ -92,17 +92,28 @@ const formatDate = (dateString: string): string => {
 const transformAssetData = async (
   data: Record<string, unknown>[]
 ): Promise<Omit<Asset, "id">[]> => {
-  const transformedAssets = [];
-
-  // Get the starting sequence number for the current year
+  const transformedAssets: Omit<Asset, "id">[] = [];
   const currentYear = new Date().getFullYear();
-  const startingSequence = await getNextGlobalSequenceNumber(currentYear);
 
-  // Process assets in order and assign sequential numbers
-  for (let i = 0; i < data.length; i++) {
-    const item = data[i];
+  const { getAssets, getRetrievedAssets } = await import(
+    "../services/assetService"
+  );
+  const existingAssets = await getAssets();
+  const existingRetrievedAssets = await getRetrievedAssets();
 
-    // Determine the specific asset type
+  const allSequences = [...existingAssets, ...existingRetrievedAssets]
+    .map((asset) => {
+      if (!asset.assetTag) return null;
+      const parts = asset.assetTag.split("-");
+      const sequence = parseInt(parts[parts.length - 1], 10);
+      return Number.isNaN(sequence) ? null : sequence;
+    })
+    .filter((seq): seq is number => seq !== null);
+
+  let nextSequenceNumber =
+    allSequences.length > 0 ? Math.max(...allSequences) + 1 : 1;
+
+  data.forEach((item) => {
     let specificAssetType = item.type;
     if (item.type === "compute" && item.computeType) {
       specificAssetType = item.computeType;
@@ -116,50 +127,31 @@ const transformAssetData = async (
       ? new Date(item.deployedDate as string).getFullYear()
       : currentYear;
 
-    const sequenceNumber = startingSequence + i;
-
-    // Generate asset tag with the global sequence
     const generatedAssetTag = `BUA-${getTypeAbbreviation(
       specificAssetType as string
-    )}-${year}-${sequenceNumber.toString().padStart(4, "0")}`;
+    )}-${year}-${nextSequenceNumber.toString().padStart(4, "0")}`;
 
     transformedAssets.push({
       ...item,
       assetTag: generatedAssetTag,
       type: specificAssetType,
-      // Transform date fields
       deployedDate: item.deployedDate
         ? formatDate(item.deployedDate as string)
         : item.deployedDate,
       warrantyExpiry: item.warrantyExpiry
         ? formatDate(item.warrantyExpiry as string)
         : item.warrantyExpiry,
-      // Handle purchaseDate if it exists
       ...(item.purchaseDate
         ? {
-            deployedDate: formatDate(item.purchaseDate as string),
-          }
+          deployedDate: formatDate(item.purchaseDate as string),
+        }
         : {}),
     });
-  }
 
-  return transformedAssets as Omit<Asset, "id">[];
-};
-
-// Helper function to get the next global sequence number for a year
-const getNextGlobalSequenceNumber = async (year: number): Promise<number> => {
-  const { getAssets } = await import("../services/assetService");
-  const existingAssets = await getAssets();
-
-  // Filter assets by year (all types)
-  const sameYearAssets = existingAssets.filter((asset) => {
-    const assetYear = asset.deployedDate
-      ? new Date(asset.deployedDate).getFullYear()
-      : new Date().getFullYear();
-    return assetYear === year;
+    nextSequenceNumber += 1;
   });
 
-  return sameYearAssets.length + 1;
+  return transformedAssets;
 };
 
 // Helper function to get type abbreviation
@@ -217,13 +209,23 @@ const transformLicenseData = (
   })) as unknown as Omit<License, "id">[];
 };
 
+export const isRowEmpty = (row: Record<string, unknown>): boolean => {
+  return Object.values(row).every((value) => {
+    if (typeof value === "string") return value.trim() === "";
+    return value === null || value === undefined;
+  });
+};
+
 export const importFromCSV = <T>(file: File): Promise<T[]> => {
   return new Promise((resolve, reject) => {
     Papa.parse<T>(file, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        resolve(results.data);
+        const cleanData = (results.data as Record<string, unknown>[]).filter(
+          (row) => !isRowEmpty(row)
+        ) as unknown as T[];
+        resolve(cleanData);
       },
       error: (error) => {
         reject(error);
@@ -242,9 +244,10 @@ export const importAssetsFromCSV = (
       skipEmptyLines: true,
       complete: async (results) => {
         try {
-          const transformedData = await transformAssetData(
-            results.data as Record<string, unknown>[]
+          const cleanData = (results.data as Record<string, unknown>[]).filter(
+            (row) => !isRowEmpty(row)
           );
+          const transformedData = await transformAssetData(cleanData);
           resolve(transformedData);
         } catch (error) {
           reject(error);
@@ -265,9 +268,10 @@ export const importReceivablesFromCSV = (
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const transformedData = transformReceivableData(
-          results.data as Record<string, unknown>[]
+        const cleanData = (results.data as Record<string, unknown>[]).filter(
+          (row) => !isRowEmpty(row)
         );
+        const transformedData = transformReceivableData(cleanData);
         resolve(transformedData);
       },
       error: (error) => {
@@ -285,9 +289,10 @@ export const importLicensesFromCSV = (
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const transformedData = transformLicenseData(
-          results.data as Record<string, unknown>[]
+        const cleanData = (results.data as Record<string, unknown>[]).filter(
+          (row) => !isRowEmpty(row)
         );
+        const transformedData = transformLicenseData(cleanData);
         resolve(transformedData);
       },
       error: (error) => {

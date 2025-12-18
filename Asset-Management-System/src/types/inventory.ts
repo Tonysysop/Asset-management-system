@@ -33,6 +33,7 @@ export interface Asset {
   status: AssetStatus;
   location: string;
   notes: string;
+  createdAt?: string; // Timestamp when asset was added to the system
   // Batch tracking (inherited from incoming stock)
   batchTag?: string;
   batchName?: string;
@@ -220,11 +221,11 @@ export interface Action {
   user: string;
   actionType: ActionType;
   itemType:
-    | "asset"
-    | "receivable"
-    | "license"
-    | "incoming-stock"
-    | "consumable";
+  | "asset"
+  | "receivable"
+  | "license"
+  | "incoming-stock"
+  | "consumable";
   itemId: string;
   assetTag?: string;
   timestamp: Date;
