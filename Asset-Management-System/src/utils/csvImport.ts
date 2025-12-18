@@ -1,5 +1,5 @@
 import Papa from "papaparse";
-import type { Asset, Receivable, License } from "../types/inventory";
+import type { Asset, Receivable, License, AssetType } from "../types/inventory";
 
 // Helper function to format dates to "October 15th, 2025" format
 const formatDate = (dateString: string): string => {
@@ -114,13 +114,15 @@ const transformAssetData = async (
     allSequences.length > 0 ? Math.max(...allSequences) + 1 : 1;
 
   data.forEach((item) => {
-    let specificAssetType = item.type;
-    if (item.type === "compute" && item.computeType) {
-      specificAssetType = item.computeType;
-    } else if (item.type === "peripheral" && item.peripheralType) {
-      specificAssetType = item.peripheralType;
-    } else if (item.type === "network" && item.networkType) {
-      specificAssetType = item.networkType;
+    const itemType = item.type as string;
+    let specificAssetType = itemType;
+
+    if (itemType === "compute" && item.computeType) {
+      specificAssetType = item.computeType as string;
+    } else if (itemType === "peripheral" && item.peripheralType) {
+      specificAssetType = item.peripheralType as string;
+    } else if (itemType === "network" && item.networkType) {
+      specificAssetType = item.networkType as string;
     }
 
     const year = item.deployedDate
@@ -128,25 +130,25 @@ const transformAssetData = async (
       : currentYear;
 
     const generatedAssetTag = `BUA-${getTypeAbbreviation(
-      specificAssetType as string
+      specificAssetType
     )}-${year}-${nextSequenceNumber.toString().padStart(4, "0")}`;
 
     transformedAssets.push({
       ...item,
       assetTag: generatedAssetTag,
-      type: specificAssetType,
+      type: itemType as AssetType,
       deployedDate: item.deployedDate
         ? formatDate(item.deployedDate as string)
-        : item.deployedDate,
+        : "",
       warrantyExpiry: item.warrantyExpiry
         ? formatDate(item.warrantyExpiry as string)
-        : item.warrantyExpiry,
+        : "",
       ...(item.purchaseDate
         ? {
           deployedDate: formatDate(item.purchaseDate as string),
         }
         : {}),
-    });
+    } as Omit<Asset, "id">);
 
     nextSequenceNumber += 1;
   });
@@ -189,7 +191,7 @@ const transformReceivableData = (
     // Transform date fields
     purchaseDate: item.purchaseDate
       ? formatDate(item.purchaseDate as string)
-      : item.purchaseDate,
+      : "",
   })) as Omit<Receivable, "id">[];
 };
 
@@ -200,12 +202,12 @@ const transformLicenseData = (
   return data.map((item) => ({
     ...item,
     // Transform date fields
-    expirationDate: item.expirationDate
-      ? formatDate(item.expirationDate as string)
-      : item.expirationDate,
+    expiryDate: item.expiryDate || item.expirationDate
+      ? formatDate((item.expiryDate || item.expirationDate) as string)
+      : "",
     assignedDate: item.assignedDate
       ? formatDate(item.assignedDate as string)
-      : item.assignedDate,
+      : "",
   })) as unknown as Omit<License, "id">[];
 };
 
